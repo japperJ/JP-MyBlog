@@ -1,0 +1,21 @@
+# Development Dockerfile
+FROM node:20-alpine
+
+# Install OpenSSL (required for Prisma)
+RUN apk add --no-cache openssl
+
+WORKDIR /app
+
+# Install dependencies
+COPY package*.json ./
+RUN npm install
+
+# Copy application files
+COPY . .
+
+# Generate Prisma Client
+RUN npx prisma generate
+
+EXPOSE 3000
+
+CMD ["npm", "run", "dev"]
