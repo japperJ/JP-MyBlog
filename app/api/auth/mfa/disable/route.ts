@@ -1,14 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/auth';
+import { requireAuth, destroyOtherSessions } from '@/lib/auth';
 import { verifyTOTP } from '@/lib/mfa';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
+import { rateLimit, getClientIp } from '@/lib/rate-limit';
 
 const disableSchema = z.object({
-  token: z.string().length(6),
+  token: z.string().regex(/^\d{6}$/, 'Token must be a 6-digit code'),
 });
 
 export async function POST(request: NextRequest) {
+  // 5 attempts per 60 seconds per IP
+  const { allowed, retryAfterMs } = rateLimit(
+    `mfa-disable:${getClientIp(request.headers)}`,
+    { limit: 5, windowMs: 60_000 }
+  );
+  if (!allowed) {
+    return NextResponse.json(
+      { error: 'Too many attempts. Please try again later.' },
+      {
+        status: 429,
+        headers: { 'Retry-After': String(Math.ceil(retryAfterMs / 1000)) },
+      }
+    );
+  }
   try {
     const user = await requireAuth();
 
@@ -45,6 +60,10 @@ export async function POST(request: NextRequest) {
         mfaSecret: null,
       },
     });
+
+    // Invalidate all other sessions — existing sessions were created without
+    // this MFA requirement and should no longer be trusted.
+    await destroyOtherSessions(user.id);
 
     return NextResponse.json({
       success: true,

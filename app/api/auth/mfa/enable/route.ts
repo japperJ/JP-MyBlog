@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/auth';
+import { requireAuth, destroyOtherSessions } from '@/lib/auth';
 import { verifyTOTP } from '@/lib/mfa';
 import { prisma } from '@/lib/prisma';
 
@@ -48,6 +48,10 @@ export async function POST(request: NextRequest) {
         pendingMfaSecret: null,
       },
     });
+
+    // Invalidate all other sessions — they were created before MFA was
+    // enabled and bypass the TOTP requirement.
+    await destroyOtherSessions(user.id);
 
     return NextResponse.json({
       success: true,

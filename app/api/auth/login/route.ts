@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { createSession, verifyPassword } from "@/lib/auth";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
+import { createMfaToken } from "@/lib/mfa-token";
 import { z } from "zod";
 
 const loginSchema = z.object({
@@ -53,10 +54,12 @@ export async function POST(request: NextRequest) {
 
     // Check if MFA is enabled
     if (user.mfaEnabled) {
-      // Return MFA required status (client will show MFA input)
+      // Issue a short-lived signed token instead of exposing the raw userId.
+      // The token is verified by /api/auth/mfa/verify.
+      const mfaToken = createMfaToken(user.id);
       return NextResponse.json({
         mfaRequired: true,
-        userId: user.id, // We'll use this temporarily, will be replaced with a token
+        mfaToken,
       });
     }
 

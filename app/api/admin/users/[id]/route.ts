@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/auth';
+import { requireAdmin } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
 type RouteContext = {
@@ -12,7 +12,7 @@ export async function DELETE(
   context: RouteContext
 ) {
   try {
-    const currentUser = await requireAuth();
+    const currentUser = await requireAdmin();
     const { id } = await context.params;
 
     // Prevent deleting yourself

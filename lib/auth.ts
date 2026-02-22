@@ -60,6 +60,32 @@ export async function requireAuth() {
   return session.user;
 }
 
+/** Throws 'Unauthorized' if the caller is not authenticated or not an admin. */
+export async function requireAdmin() {
+  const user = await requireAuth();
+  if (user.role !== "admin") {
+    throw new Error("Unauthorized");
+  }
+  return user;
+}
+
+/**
+ * Delete all sessions for a user except the current one.
+ * Call after MFA enable/disable to invalidate sessions created before the
+ * security-level change.
+ */
+export async function destroyOtherSessions(userId: string): Promise<void> {
+  const cookieStore = await cookies();
+  const currentToken = cookieStore.get(SESSION_COOKIE_NAME)?.value;
+
+  await prisma.session.deleteMany({
+    where: {
+      userId,
+      ...(currentToken ? { NOT: { token: currentToken } } : {}),
+    },
+  });
+}
+
 export async function createSession(userId: string): Promise<string> {
   const token = generateSessionToken();
   const expiresAt = new Date(Date.now() + SESSION_DURATION);
@@ -76,7 +102,7 @@ export async function createSession(userId: string): Promise<string> {
   cookieStore.set(SESSION_COOKIE_NAME, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    sameSite: "strict",
     expires: expiresAt,
     path: "/",
   });

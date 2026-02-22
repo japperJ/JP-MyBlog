@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/auth';
+import { requireAdmin } from '@/lib/auth';
 import { hashPassword } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
@@ -14,7 +14,7 @@ const createUserSchema = z.object({
 // GET - List all users
 export async function GET() {
   try {
-    await requireAuth();
+    await requireAdmin();
 
     const users = await prisma.user.findMany({
       select: {
@@ -46,7 +46,7 @@ export async function GET() {
 // POST - Create new user
 export async function POST(request: NextRequest) {
   try {
-    await requireAuth();
+    await requireAdmin();
 
     const body = await request.json();
     const { email, name, password, role } = createUserSchema.parse(body);

@@ -1,6 +1,10 @@
 import { ImageResponse } from "@vercel/og";
 import { NextRequest } from "next/server";
 
+// Note: runtime is "edge" — use a simple in-request header check for abuse
+// prevention rather than the Node.js rate-limiter (which uses Map/setInterval).
+// For production, replace with an edge-compatible store (e.g. Upstash Redis).
+
 export const runtime = "edge";
 
 export async function GET(request: NextRequest) {

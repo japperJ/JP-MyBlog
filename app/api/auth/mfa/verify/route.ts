@@ -4,10 +4,11 @@ import { prisma } from '@/lib/prisma';
 import { verifyTOTP } from '@/lib/mfa';
 import { createSession } from '@/lib/auth';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
+import { verifyMfaToken } from '@/lib/mfa-token';
 
 const verifySchema = z.object({
-  userId: z.string(),
-  token: z.string().length(6), // TOTP tokens are 6 digits
+  mfaToken: z.string().min(1),
+  token: z.string().regex(/^\d{6}$/, 'Token must be a 6-digit code'),
 });
 
 export async function POST(request: NextRequest) {
@@ -28,7 +29,16 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { userId, token } = verifySchema.parse(body);
+    const { mfaToken, token } = verifySchema.parse(body);
+
+    // Validate the signed token issued by /api/auth/login
+    const userId = verifyMfaToken(mfaToken);
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'Invalid or expired MFA session. Please log in again.' },
+        { status: 401 }
+      );
+    }
 
     // Find user with MFA enabled
     const user = await prisma.user.findUnique({

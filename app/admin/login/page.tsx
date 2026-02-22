@@ -22,7 +22,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [mfaCode, setMfaCode] = useState("");
-  const [userId, setUserId] = useState("");
+  const [mfaToken, setMfaToken] = useState("");
   const [mfaRequired, setMfaRequired] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -52,7 +52,7 @@ export default function LoginPage() {
       // Check if MFA is required
       if (data.mfaRequired) {
         setMfaRequired(true);
-        setUserId(data.userId);
+        setMfaToken(data.mfaToken);
         setLoading(false);
         return;
       }
@@ -78,7 +78,7 @@ export default function LoginPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ userId, token: mfaCode }),
+        body: JSON.stringify({ mfaToken, token: mfaCode }),
       });
 
       const data = await res.json();
@@ -146,7 +146,7 @@ export default function LoginPage() {
                   onClick={() => {
                     setMfaRequired(false);
                     setMfaCode("");
-                    setUserId("");
+                    setMfaToken("");
                   }}
                 >
                   Back

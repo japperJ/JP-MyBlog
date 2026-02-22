@@ -9,7 +9,13 @@ const updatePostSchema = z.object({
   title: z.string().min(1).max(200).optional(),
   content: z.string().min(1).optional(),
   excerpt: z.string().optional(),
-  coverImage: z.string().optional(),
+  coverImage: z
+    .string()
+    .refine(
+      (v) => !v || v.startsWith("/uploads/") || v.startsWith("https://"),
+      "coverImage must be a relative /uploads/ path or an https:// URL"
+    )
+    .optional(),
   published: z.boolean().optional(),
   featured: z.boolean().optional(),
   categoryIds: z.array(z.string()).optional(),
