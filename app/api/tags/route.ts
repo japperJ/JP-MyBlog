@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireAuth } from "@/lib/auth";
 import { slugify } from "@/lib/utils";
 import { z } from "zod";
 
@@ -36,6 +37,7 @@ export async function GET() {
 // POST /api/tags - Create new tag
 export async function POST(request: NextRequest) {
   try {
+    await requireAuth();
     const body = await request.json();
     const data = tagSchema.parse(body);
 
@@ -51,6 +53,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(tag, { status: 201 });
   } catch (error) {
     console.error("Error creating tag:", error);
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: "Invalid request data", details: error.errors },

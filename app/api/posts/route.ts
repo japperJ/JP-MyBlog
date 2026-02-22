@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireAuth } from "@/lib/auth";
 import { slugify } from "@/lib/utils";
 import { calculateReadingTime } from "@/lib/markdown";
 import { z } from "zod";
@@ -19,8 +20,8 @@ const createPostSchema = z.object({
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    const page = parseInt(searchParams.get("page") || "1");
-    const limit = parseInt(searchParams.get("limit") || "10");
+    const page = Math.max(1, parseInt(searchParams.get("page") || "1"));
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "10")));
     const published = searchParams.get("published") === "true";
     const categorySlug = searchParams.get("category");
     const tagSlug = searchParams.get("tag");
@@ -113,6 +114,8 @@ export async function GET(request: NextRequest) {
 // POST /api/posts - Create new post
 export async function POST(request: NextRequest) {
   try {
+    const currentUser = await requireAuth();
+
     const body = await request.json();
     const data = createPostSchema.parse(body);
 
@@ -131,15 +134,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // For now, use the first user as author (in production, get from session)
-    const author = await prisma.user.findFirst();
-    if (!author) {
-      return NextResponse.json(
-        { error: "No author found" },
-        { status: 400 }
-      );
-    }
-
     const post = await prisma.post.create({
       data: {
         title: data.title,
@@ -151,7 +145,7 @@ export async function POST(request: NextRequest) {
         featured: data.featured,
         readingTime,
         publishedAt: data.published ? new Date() : null,
-        authorId: author.id,
+        authorId: currentUser.id,
         categories: data.categoryIds
           ? {
               create: data.categoryIds.map((categoryId) => ({
@@ -185,6 +179,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(post, { status: 201 });
   } catch (error) {
     console.error("Error creating post:", error);
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: "Invalid request data", details: error.errors },

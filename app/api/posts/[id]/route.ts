@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireAuth } from "@/lib/auth";
 import { slugify } from "@/lib/utils";
 import { calculateReadingTime } from "@/lib/markdown";
 import { z } from "zod";
@@ -69,6 +70,8 @@ export async function GET(request: NextRequest, { params }: Params) {
 // PATCH /api/posts/[id] - Update post
 export async function PATCH(request: NextRequest, { params }: Params) {
   try {
+    await requireAuth();
+
     const { id } = await params;
     const body = await request.json();
     const data = updatePostSchema.parse(body);
@@ -157,6 +160,9 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     return NextResponse.json(post);
   } catch (error) {
     console.error("Error updating post:", error);
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: "Invalid request data", details: error.errors },
@@ -173,6 +179,8 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 // DELETE /api/posts/[id] - Delete post
 export async function DELETE(request: NextRequest, { params }: Params) {
   try {
+    await requireAuth();
+
     const { id } = await params;
 
     await prisma.post.delete({
@@ -182,6 +190,9 @@ export async function DELETE(request: NextRequest, { params }: Params) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Error deleting post:", error);
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     return NextResponse.json(
       { error: "Failed to delete post" },
       { status: 500 }

@@ -199,12 +199,6 @@ export default function LoginPage() {
               {loading ? "Logging in..." : "Login"}
             </Button>
           </form>
-          
-          <div className="mt-6 p-4 bg-muted rounded-lg text-sm">
-            <p className="font-medium mb-2">Default Credentials:</p>
-            <p className="text-muted-foreground">Email: admin@aicodingblog.com</p>
-            <p className="text-muted-foreground">Password: admin123</p>
-          </div>
         </CardContent>
       </Card>
     </div>

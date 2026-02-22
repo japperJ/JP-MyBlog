@@ -2,9 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import { existsSync } from "fs";
+import { requireAuth } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
   try {
+    await requireAuth();
+
     const formData = await request.formData();
     const file = formData.get("file") as File;
 
@@ -36,10 +39,10 @@ export async function POST(request: NextRequest) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    // Generate unique filename
+    // Generate unique filename — strip any path components to prevent traversal
     const timestamp = Date.now();
-    const originalName = file.name.replace(/\s+/g, "-");
-    const filename = `${timestamp}-${originalName}`;
+    const safeName = path.basename(file.name).replace(/[^a-zA-Z0-9._-]/g, "-");
+    const filename = `${timestamp}-${safeName}`;
 
     // Create uploads directory if it doesn't exist
     const uploadsDir = path.join(process.cwd(), "public", "uploads");
@@ -57,6 +60,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ url }, { status: 201 });
   } catch (error) {
     console.error("Error uploading file:", error);
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     return NextResponse.json(
       { error: "Failed to upload file" },
       { status: 500 }

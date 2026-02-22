@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireAuth } from "@/lib/auth";
 import { slugify } from "@/lib/utils";
 import { z } from "zod";
 
@@ -14,6 +15,7 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
+    await requireAuth();
     const body = await request.json();
     const data = tagSchema.parse(body);
 
@@ -31,6 +33,9 @@ export async function PATCH(
     return NextResponse.json(tag);
   } catch (error) {
     console.error("Error updating tag:", error);
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: "Invalid request data", details: error.errors },
@@ -50,6 +55,8 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
+    await requireAuth();
+
     await prisma.tag.delete({
       where: { id: params.id },
     });
@@ -57,6 +64,9 @@ export async function DELETE(
     return NextResponse.json({ message: "Tag deleted successfully" });
   } catch (error) {
     console.error("Error deleting tag:", error);
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     return NextResponse.json(
       { error: "Failed to delete tag" },
       { status: 500 }
