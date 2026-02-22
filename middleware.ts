@@ -40,6 +40,19 @@ export async function middleware(request: NextRequest) {
         loginUrl.searchParams.set("from", pathname);
         return NextResponse.redirect(loginUrl);
       }
+
+      // If admin has required MFA for this user but they haven't set it up yet,
+      // force them to the settings page before they can access anything else.
+      const sessionData = await sessionCheck.json();
+      if (
+        sessionData.user?.mfaRequired &&
+        !sessionData.user?.mfaEnabled &&
+        pathname !== "/admin/settings"
+      ) {
+        const settingsUrl = new URL("/admin/settings", request.url);
+        settingsUrl.searchParams.set("mfa-required", "1");
+        return NextResponse.redirect(settingsUrl);
+      }
     } catch (error) {
       console.error("Session verification error:", error);
       // On error, redirect to login

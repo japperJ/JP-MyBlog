@@ -9,6 +9,7 @@ export interface Session {
     name: string | null;
     role: string;
     mfaEnabled?: boolean;
+    mfaRequired?: boolean;
   };
 }
 
@@ -38,6 +39,7 @@ export async function getSession(): Promise<Session | null> {
           name: true,
           role: true,
           mfaEnabled: true,
+          mfaRequired: true,
         },
       },
     },

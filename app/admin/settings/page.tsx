@@ -1,18 +1,21 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { AdminNavigation } from '@/components/admin-navigation';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Shield, ShieldCheck, ShieldOff } from 'lucide-react';
+import { Shield, ShieldCheck, ShieldOff, ShieldAlert } from 'lucide-react';
 import Image from 'next/image';
 
 export default function MFASettingsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const mfaForcedByAdmin = searchParams.get('mfa-required') === '1';
   const [loading, setLoading] = useState(false);
   const [mfaEnabled, setMfaEnabled] = useState(false);
+  const [mfaRequired, setMfaRequired] = useState(false);
   const [setupMode, setSetupMode] = useState(false);
   const [qrCode, setQrCode] = useState<string>('');
   const [secret, setSecret] = useState<string>('');
@@ -28,9 +31,13 @@ export default function MFASettingsPage() {
     try {
       const response = await fetch('/api/auth/session');
       const data = await response.json();
-      
-      if (data.user?.mfaEnabled) {
-        setMfaEnabled(true);
+
+      if (data.user?.mfaEnabled) setMfaEnabled(true);
+      if (data.user?.mfaRequired) setMfaRequired(true);
+
+      // Auto-start setup if MFA is required but not yet configured
+      if (data.user?.mfaRequired && !data.user?.mfaEnabled) {
+        startMFASetup();
       }
     } catch (error) {
       console.error('Failed to check MFA status:', error);
@@ -140,6 +147,19 @@ export default function MFASettingsPage() {
           </p>
         </div>
 
+        {(mfaForcedByAdmin || (mfaRequired && !mfaEnabled)) && (
+          <div className="mb-6 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 rounded-lg flex items-start gap-3">
+            <ShieldAlert className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+            <div>
+              <p className="font-semibold text-amber-800 dark:text-amber-300">MFA setup required</p>
+              <p className="text-sm text-amber-700 dark:text-amber-400 mt-1">
+                Your administrator requires you to enable two-factor authentication before you can
+                access the admin panel. Please complete the setup below.
+              </p>
+            </div>
+          </div>
+        )}
+
         {error && (
           <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-600 dark:text-red-400">
             {error}
@@ -244,10 +264,17 @@ export default function MFASettingsPage() {
                 Your account is protected with two-factor authentication.
                 You'll be prompted for a code from your authenticator app when logging in.
               </p>
-              <Button variant="destructive" onClick={disableMFA} disabled={loading}>
-                <ShieldOff className="h-4 w-4 mr-2" />
-                {loading ? 'Disabling...' : 'Disable MFA'}
-              </Button>
+              {mfaRequired ? (
+                <div className="flex items-center gap-2 text-sm text-amber-600 dark:text-amber-400">
+                  <ShieldAlert className="h-4 w-4" />
+                  MFA is required by your administrator and cannot be disabled.
+                </div>
+              ) : (
+                <Button variant="destructive" onClick={disableMFA} disabled={loading}>
+                  <ShieldOff className="h-4 w-4 mr-2" />
+                  {loading ? 'Disabling...' : 'Disable MFA'}
+                </Button>
+              )}
             </div>
           )}
         </Card>
