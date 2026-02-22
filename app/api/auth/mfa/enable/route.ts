@@ -7,17 +7,30 @@ export async function POST(request: NextRequest) {
   try {
     const user = await requireAuth();
     const body = await request.json();
-    const { secret, token } = body;
+    const { token } = body;
 
-    if (!secret || !token) {
+    if (!token) {
       return NextResponse.json(
-        { error: 'Secret and token are required' },
+        { error: 'Token is required' },
         { status: 400 }
       );
     }
 
-    // Verify the token against the secret
-    const isValid = verifyTOTP(token, secret);
+    // Fetch the server-generated pending secret — never trust the client-supplied secret
+    const dbUser = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { pendingMfaSecret: true },
+    });
+
+    if (!dbUser?.pendingMfaSecret) {
+      return NextResponse.json(
+        { error: 'No pending MFA setup found. Please generate a new QR code.' },
+        { status: 400 }
+      );
+    }
+
+    // Verify the token against the server-held secret
+    const isValid = verifyTOTP(token, dbUser.pendingMfaSecret);
 
     if (!isValid) {
       return NextResponse.json(
@@ -26,12 +39,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Enable MFA for the user
+    // Promote pendingMfaSecret → mfaSecret and enable MFA
     await prisma.user.update({
       where: { id: user.id },
       data: {
         mfaEnabled: true,
-        mfaSecret: secret,
+        mfaSecret: dbUser.pendingMfaSecret,
+        pendingMfaSecret: null,
       },
     });
 

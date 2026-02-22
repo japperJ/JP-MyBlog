@@ -1,14 +1,24 @@
 "use client";
 
 import { useState, FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
+/** Only allow same-origin relative redirects — no protocol-relative or absolute URLs. */
+function safeRedirectPath(from: string | null): string {
+  if (from && from.startsWith("/") && !from.startsWith("//") && !from.includes("://")) {
+    return from;
+  }
+  return "/admin";
+}
+
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo = safeRedirectPath(searchParams.get("from"));
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [mfaCode, setMfaCode] = useState("");
@@ -47,8 +57,8 @@ export default function LoginPage() {
         return;
       }
 
-      // Redirect to admin dashboard on success
-      router.push("/admin");
+      // Redirect to the originally requested page (validated, safe)
+      router.push(redirectTo);
       router.refresh();
     } catch (err) {
       console.error("Login error:", err);
@@ -79,8 +89,8 @@ export default function LoginPage() {
         return;
       }
 
-      // Redirect to admin dashboard on success
-      router.push("/admin");
+      // Redirect to the originally requested page (validated, safe)
+      router.push(redirectTo);
       router.refresh();
     } catch (err) {
       console.error("MFA verification error:", err);

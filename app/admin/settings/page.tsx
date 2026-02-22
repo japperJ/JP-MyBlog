@@ -75,7 +75,6 @@ export default function MFASettingsPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          secret,
           token: verificationCode,
         }),
       });
