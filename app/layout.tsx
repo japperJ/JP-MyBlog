@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
-import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
+import { getConfiguredAppOrigin } from "@/lib/runtime-config";
+import "./globals.css";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -13,7 +14,10 @@ const jetbrainsMono = JetBrains_Mono({
   variable: "--font-jetbrains-mono",
 });
 
+const appOrigin = getConfiguredAppOrigin();
+
 export const metadata: Metadata = {
+  metadataBase: new URL(appOrigin),
   title: {
     default: "AI Coding Blog",
     template: "%s | AI Coding Blog",
@@ -25,7 +29,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "en_US",
-    url: "https://aicodingblog.com",
+    url: appOrigin,
     title: "AI Coding Blog",
     description: "A modern blog about AI coding, machine learning, and software development",
     siteName: "AI Coding Blog",
@@ -54,9 +58,7 @@ export default function RootLayout({
           href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css"
         />
       </head>
-      <body
-        className={`${inter.variable} ${jetbrainsMono.variable} font-sans antialiased`}
-      >
+      <body className={`${inter.variable} ${jetbrainsMono.variable} font-sans antialiased`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"

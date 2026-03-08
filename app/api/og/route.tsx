@@ -1,9 +1,6 @@
 import { ImageResponse } from "@vercel/og";
 import { NextRequest } from "next/server";
-
-// Note: runtime is "edge" — use a simple in-request header check for abuse
-// prevention rather than the Node.js rate-limiter (which uses Map/setInterval).
-// For production, replace with an edge-compatible store (e.g. Upstash Redis).
+import { getAppHost } from "@/lib/runtime-config";
 
 export const runtime = "edge";
 
@@ -13,6 +10,7 @@ export async function GET(request: NextRequest) {
     const title = searchParams.get("title");
     const excerpt = searchParams.get("excerpt");
     const category = searchParams.get("category");
+    const host = getAppHost(request.headers);
 
     if (!title) {
       return new Response("Missing title parameter", { status: 400 });
@@ -32,7 +30,6 @@ export async function GET(request: NextRequest) {
             backgroundImage: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
           }}
         >
-          {/* Header */}
           <div
             style={{
               display: "flex",
@@ -82,7 +79,6 @@ export async function GET(request: NextRequest) {
             </div>
           </div>
 
-          {/* Main Content */}
           <div
             style={{
               display: "flex",
@@ -118,7 +114,6 @@ export async function GET(request: NextRequest) {
             )}
           </div>
 
-          {/* Footer */}
           <div
             style={{
               display: "flex",
@@ -128,7 +123,7 @@ export async function GET(request: NextRequest) {
               color: "rgba(255, 255, 255, 0.9)",
             }}
           >
-            <span>Read more at ai-coding-blog.dev</span>
+            <span>Read more at {host}</span>
           </div>
         </div>
       ),
@@ -138,7 +133,10 @@ export async function GET(request: NextRequest) {
       }
     );
   } catch (error) {
-    console.error("Error generating OG image:", error);
+    console.error("Error generating OG image", {
+      route: "/api/og",
+      error: error instanceof Error ? { message: error.message, stack: error.stack } : error,
+    });
     return new Response("Failed to generate image", { status: 500 });
   }
 }

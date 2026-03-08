@@ -1,12 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
+import { Check, Copy, Image as ImageIcon, Info, Upload } from "lucide-react";
 import { AdminNavigation } from "@/components/admin-navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import Link from "next/link";
-import { Upload, Copy, Check, Image as ImageIcon } from "lucide-react";
 
 interface UploadedImage {
   url: string;
@@ -20,9 +20,11 @@ export default function MediaLibraryPage() {
   const [images, setImages] = useState<UploadedImage[]>([]);
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) {
+      return;
+    }
 
     setUploading(true);
 
@@ -30,18 +32,16 @@ export default function MediaLibraryPage() {
       const formData = new FormData();
       formData.append("file", files[0]);
 
-      const res = await fetch("/api/upload", {
+      const response = await fetch("/api/upload", {
         method: "POST",
         body: formData,
       });
 
-      if (!res.ok) {
-        throw new Error("Upload failed");
+      const data = await response.json().catch(() => ({ error: "Upload failed" }));
+      if (!response.ok) {
+        throw new Error(data.error || "Upload failed");
       }
 
-      const data = await res.json();
-      
-      // Add to images list
       const newImage: UploadedImage = {
         url: data.url,
         filename: files[0].name,
@@ -49,17 +49,18 @@ export default function MediaLibraryPage() {
         uploadedAt: new Date().toISOString(),
       };
 
-      setImages([newImage, ...images]);
-      
-      // Show success message
-      alert(`Image uploaded successfully!\nURL: ${data.url}`);
+      setImages((currentImages) => [newImage, ...currentImages]);
+      alert(`Image uploaded successfully!
+URL: ${data.url}`);
     } catch (error) {
-      console.error("Error uploading file:", error);
-      alert("Failed to upload image. Please try again.");
+      console.error("Error uploading file", {
+        page: "/admin/media",
+        error: error instanceof Error ? { message: error.message, stack: error.stack } : error,
+      });
+      alert(error instanceof Error ? error.message : "Failed to upload image. Please try again.");
     } finally {
       setUploading(false);
-      // Reset file input
-      e.target.value = "";
+      event.target.value = "";
     }
   };
 
@@ -69,14 +70,17 @@ export default function MediaLibraryPage() {
       setCopiedUrl(url);
       setTimeout(() => setCopiedUrl(null), 2000);
     } catch (error) {
-      console.error("Failed to copy:", error);
+      console.error("Failed to copy image URL", {
+        page: "/admin/media",
+        error: error instanceof Error ? { message: error.message, stack: error.stack } : error,
+      });
     }
   };
 
   const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return bytes + " B";
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
-    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
   return (
@@ -87,21 +91,38 @@ export default function MediaLibraryPage() {
           <div className="flex justify-between items-center mb-8">
             <div>
               <h1 className="text-4xl font-bold mb-2">Media Library</h1>
-              <p className="text-muted-foreground">
-                Upload and manage your blog images
-              </p>
+              <p className="text-muted-foreground">Manage local uploads and external image URLs for your posts</p>
             </div>
             <Button asChild variant="outline">
               <Link href="/admin">Back to Dashboard</Link>
             </Button>
           </div>
 
-          {/* Upload Section */}
+          <Card className="mb-8 border-amber-500/40 bg-amber-500/5">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Info className="h-5 w-5" />
+                Hosted upload limitation
+              </CardTitle>
+              <CardDescription>
+                Vercel-hosted preview and development deployments do not support persistent filesystem uploads.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm text-muted-foreground">
+              <p>
+                Use an external HTTPS image URL in your post&apos;s cover image field when you are working on Vercel.
+              </p>
+              <p>
+                Local filesystem uploads remain available only for local or non-Vercel workflows until object storage is added.
+              </p>
+            </CardContent>
+          </Card>
+
           <Card className="mb-8">
             <CardHeader>
               <CardTitle>Upload Image</CardTitle>
               <CardDescription>
-                Upload images for your blog posts. Supported formats: JPG, PNG, GIF, WebP
+                Local-only workflow. Hosted Vercel uploads return a clear error and should be replaced with manual HTTPS URLs.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -112,9 +133,7 @@ export default function MediaLibraryPage() {
                     className="flex items-center justify-center gap-2 px-4 py-8 border-2 border-dashed rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
                   >
                     <Upload className="h-6 w-6" />
-                    <span className="text-lg">
-                      {uploading ? "Uploading..." : "Click to upload or drag and drop"}
-                    </span>
+                    <span className="text-lg">{uploading ? "Uploading..." : "Click to upload or drag and drop"}</span>
                     <Input
                       id="file-upload"
                       type="file"
@@ -126,13 +145,10 @@ export default function MediaLibraryPage() {
                   </label>
                 </div>
               </div>
-              <p className="text-xs text-muted-foreground mt-2">
-                Max file size: 5MB
-              </p>
+              <p className="text-xs text-muted-foreground mt-2">Max file size: 5MB</p>
             </CardContent>
           </Card>
 
-          {/* Instructions */}
           <Card className="mb-8">
             <CardHeader>
               <CardTitle>How to Use</CardTitle>
@@ -144,10 +160,10 @@ export default function MediaLibraryPage() {
                     <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-sm">
                       1
                     </span>
-                    Upload Image
+                    Choose an image source
                   </div>
                   <p className="text-sm text-muted-foreground pl-8">
-                    Click the upload area or drag and drop your image file
+                    Upload locally when you are not on Vercel, or prepare an external HTTPS image URL for hosted environments.
                   </p>
                 </div>
                 <div className="space-y-2">
@@ -155,10 +171,10 @@ export default function MediaLibraryPage() {
                     <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-sm">
                       2
                     </span>
-                    Copy URL
+                    Copy the final URL
                   </div>
                   <p className="text-sm text-muted-foreground pl-8">
-                    Click the copy button to get the image URL
+                    Use the upload response locally, or copy your external HTTPS image URL from your image host.
                   </p>
                 </div>
                 <div className="space-y-2">
@@ -166,28 +182,27 @@ export default function MediaLibraryPage() {
                     <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-sm">
                       3
                     </span>
-                    Use in Post
+                    Paste into the editor
                   </div>
                   <p className="text-sm text-muted-foreground pl-8">
-                    Paste the URL in your post's cover image field
+                    Paste the final URL into your post&apos;s cover image field. Vercel-hosted preview/dev supports HTTPS URLs, not local disk persistence.
                   </p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Recently Uploaded Images */}
           {images.length > 0 && (
             <Card>
               <CardHeader>
                 <CardTitle>Recently Uploaded</CardTitle>
-                <CardDescription>Images uploaded in this session</CardDescription>
+                <CardDescription>Images uploaded in this browser session</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {images.map((image, index) => (
+                  {images.map((image) => (
                     <div
-                      key={index}
+                      key={`${image.url}-${image.uploadedAt}`}
                       className="border rounded-lg overflow-hidden hover:shadow-lg transition-shadow"
                     >
                       <div className="aspect-video bg-muted flex items-center justify-center relative group">
@@ -195,10 +210,11 @@ export default function MediaLibraryPage() {
                           src={image.url}
                           alt={image.filename}
                           className="w-full h-full object-cover"
-                          onError={(e) => {
-                            // Fallback if image fails to load
-                            e.currentTarget.style.display = "none";
-                            e.currentTarget.parentElement!.querySelector(".fallback-icon")!.classList.remove("hidden");
+                          onError={(error) => {
+                            error.currentTarget.style.display = "none";
+                            error.currentTarget.parentElement
+                              ?.querySelector(".fallback-icon")
+                              ?.classList.remove("hidden");
                           }}
                         />
                         <ImageIcon className="h-12 w-12 text-muted-foreground fallback-icon hidden" />
@@ -230,11 +246,7 @@ export default function MediaLibraryPage() {
                               </>
                             )}
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            asChild
-                          >
+                          <Button variant="ghost" size="sm" asChild>
                             <a href={image.url} target="_blank" rel="noopener noreferrer">
                               View
                             </a>
@@ -248,13 +260,12 @@ export default function MediaLibraryPage() {
             </Card>
           )}
 
-          {/* Empty State */}
           {images.length === 0 && (
             <Card>
               <CardContent className="py-12">
                 <div className="text-center text-muted-foreground">
                   <ImageIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>No images uploaded yet. Upload your first image above!</p>
+                  <p>No images uploaded in this session yet.</p>
                 </div>
               </CardContent>
             </Card>

@@ -1,7 +1,8 @@
-import { prisma } from "@/lib/prisma";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import PostPageClient from "@/components/blog/post-page-client";
-import type { Metadata } from "next";
+import { prisma } from "@/lib/prisma";
+import { getAppUrl, getConfiguredAppOrigin } from "@/lib/runtime-config";
 
 type Props = {
   params: Promise<{
@@ -11,7 +12,7 @@ type Props = {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  
+
   const post = await prisma.post.findUnique({
     where: { slug },
     select: {
@@ -32,37 +33,45 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     };
   }
 
+  const appOrigin = getConfiguredAppOrigin();
   const categoryName = post.categories[0]?.category.name;
-  
-  // Generate OG image URL
-  const ogImageUrl = new URL('/api/og', process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001');
-  ogImageUrl.searchParams.set('title', post.title);
+  const ogImageUrl = new URL(getAppUrl("/api/og"));
+  ogImageUrl.searchParams.set("title", post.title);
   if (post.excerpt) {
-    ogImageUrl.searchParams.set('excerpt', post.excerpt);
+    ogImageUrl.searchParams.set("excerpt", post.excerpt);
   }
   if (categoryName) {
-    ogImageUrl.searchParams.set('category', categoryName);
+    ogImageUrl.searchParams.set("category", categoryName);
   }
+
+  const socialImageUrl = post.coverImage
+    ? new URL(post.coverImage, appOrigin).toString()
+    : ogImageUrl.toString();
+  const canonicalUrl = getAppUrl(`/blog/${slug}`);
 
   return {
     title: post.title,
     description: post.excerpt || undefined,
+    alternates: {
+      canonical: canonicalUrl,
+    },
     openGraph: {
+      url: canonicalUrl,
       title: post.title,
       description: post.excerpt || undefined,
       images: [
         {
-          url: post.coverImage || ogImageUrl.toString(),
+          url: socialImageUrl,
           width: 1200,
           height: 630,
         },
       ],
     },
     twitter: {
-      card: 'summary_large_image',
+      card: "summary_large_image",
       title: post.title,
       description: post.excerpt || undefined,
-      images: [post.coverImage || ogImageUrl.toString()],
+      images: [socialImageUrl],
     },
   };
 }
@@ -80,7 +89,7 @@ export async function generateStaticParams() {
 
 export default async function PostPage({ params }: Props) {
   const { slug } = await params;
-  
+
   const post = await prisma.post.findUnique({
     where: { slug },
     include: {
@@ -108,7 +117,6 @@ export default async function PostPage({ params }: Props) {
     notFound();
   }
 
-  // Increment view count (this will run on server)
   await prisma.post.update({
     where: { id: post.id },
     data: {
