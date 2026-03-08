@@ -185,7 +185,29 @@ Hosted workflow:
 - In-memory rate limiting is acceptable for preview/dev only.
 - Final deployment readiness cannot be claimed without a real reachable external PostgreSQL database and a real preview URL for hosted smoke testing.
 
-## Additional docs
+## Documentation
 
-- [`GETTING_STARTED.md`](./GETTING_STARTED.md)
-- [`IMPLEMENTATION.md`](./IMPLEMENTATION.md)
+### For users (getting started, writing posts, customization)
+
+- [**Quickstart**](./docs/user/quickstart.md) — your blog running on Vercel in 5 minutes
+- [**Writing Posts**](./docs/user/writing-posts.md) — create, edit, publish, and manage blog posts
+- [**Customization**](./docs/user/customization.md) — site name, metadata, OG images, theme, author profiles
+- [**Troubleshooting**](./docs/user/troubleshooting.md) — symptom-based fixes for common issues
+
+### For engineers (architecture, auth, SEO, deployment internals)
+
+- [**Architecture**](./docs/technical/architecture.md) — system design, invariants, technology choices, and rationale
+- [**Auth System**](./docs/technical/auth-system.md) — session cookies, MFA/TOTP, middleware, the self-fetch deadlock fix
+- [**SEO Implementation**](./docs/technical/seo-implementation.md) — JSON-LD schemas, ISR strategy, sitemap, OG images
+- [**Deployment Model**](./docs/technical/deployment-model.md) — Vercel Hobby constraints, env var contract, build pipeline
+
+### For admins (deployment procedures, database ops, monitoring)
+
+- [**Deployment Procedure**](./docs/admin/deployment.md) — full setup with prerequisites, rollback, and verification checklist
+- [**Database Operations**](./docs/admin/database-operations.md) — migrations, seed data, backup/restore, user management
+- [**Monitoring**](./docs/admin/monitoring.md) — health checks, alerts, incident response decision tree
+
+### Legacy docs
+
+- [`GETTING_STARTED.md`](./GETTING_STARTED.md) — original getting started guide (superseded by [docs/user/quickstart.md](./docs/user/quickstart.md))
+- [`IMPLEMENTATION.md`](./IMPLEMENTATION.md) — original implementation notes (superseded by [docs/technical/](./docs/technical/))
