@@ -12,12 +12,13 @@ const tagSchema = z.object({
 // PATCH /api/tags/[id] - Update tag
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await requireAuth();
     const body = await request.json();
     const data = tagSchema.parse(body);
+    const { id } = await params;
 
     // If name changed, regenerate slug
     const updateData: any = { ...data };
@@ -26,7 +27,7 @@ export async function PATCH(
     }
 
     const tag = await prisma.tag.update({
-      where: { id: params.id },
+      where: { id },
       data: updateData,
     });
 
@@ -52,13 +53,14 @@ export async function PATCH(
 // DELETE /api/tags/[id] - Delete tag
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await requireAuth();
+    const { id } = await params;
 
     await prisma.tag.delete({
-      where: { id: params.id },
+      where: { id },
     });
 
     return NextResponse.json({ message: "Tag deleted successfully" });

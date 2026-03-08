@@ -13,12 +13,13 @@ const categorySchema = z.object({
 // PATCH /api/categories/[id] - Update category
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await requireAuth();
     const body = await request.json();
     const data = categorySchema.parse(body);
+    const { id } = await params;
 
     // If name changed, regenerate slug
     const updateData: any = { ...data };
@@ -27,7 +28,7 @@ export async function PATCH(
     }
 
     const category = await prisma.category.update({
-      where: { id: params.id },
+      where: { id },
       data: updateData,
     });
 
@@ -53,13 +54,14 @@ export async function PATCH(
 // DELETE /api/categories/[id] - Delete category
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await requireAuth();
+    const { id } = await params;
 
     await prisma.category.delete({
-      where: { id: params.id },
+      where: { id },
     });
 
     return NextResponse.json({ message: "Category deleted successfully" });
