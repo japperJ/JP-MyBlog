@@ -1,6 +1,6 @@
 # Getting Started with AI Coding Blog
 
-This guide assumes the app lives at `upstream/JP-MyBlog/` inside the current workspace and is being prepared for Vercel Hobby preview/development use.
+This guide assumes the app stays nested at `upstream/JP-MyBlog/` and that the same shared external PostgreSQL database is used for local development, Vercel Development, and Vercel Preview during the first rollout.
 
 ## 1. Move into the app root
 
@@ -22,23 +22,23 @@ npm install
 cp .env.example .env.local
 ```
 
-Set these values in `.env.local`:
+Set `.env.local`:
 
 ```env
-DATABASE_URL="postgresql://<external-postgres>"
+DATABASE_URL="postgresql://<shared-external-provider>"
 NEXT_PUBLIC_APP_URL="http://localhost:3000"
 MFA_TOKEN_SECRET="replace-with-a-long-random-secret"
 ```
 
-### What each variable does
+What each variable does:
 
-- `DATABASE_URL` powers Prisma, content CRUD, sessions, and MFA-related persistence.
-- `NEXT_PUBLIC_APP_URL` is the public origin used for metadata, sitemap, feed, and OG URLs.
-- `MFA_TOKEN_SECRET` signs short-lived MFA challenge tokens and must stay stable in hosted environments.
+- `DATABASE_URL` powers Prisma, content queries, session persistence, and MFA-related state.
+- `NEXT_PUBLIC_APP_URL` should stay explicit for local development.
+- `MFA_TOKEN_SECRET` should be stable anywhere you may run multiple server instances or redeploy frequently.
 
-## 4. Initialize the database once
+## 4. Initialize the shared database
 
-This repo does not currently include checked-in Prisma migrations, so the smallest setup path is:
+This repo does not currently include checked-in Prisma migrations, so the one-time bootstrap path is:
 
 ```bash
 npm run db:generate
@@ -46,7 +46,33 @@ npm run db:push
 npm run db:seed
 ```
 
-## 5. Start local development
+What this means:
+
+- `db:generate` refreshes the Prisma client.
+- `db:push` applies the current schema to the shared database.
+- `db:seed` creates the default admin user plus starter categories, tags, and a sample post.
+
+Seeded admin account:
+
+- Email: `admin@aicodingblog.com`
+- Password: `admin123`
+
+## 5. Run the local readiness preflight
+
+Before claiming the app is locally ready, run:
+
+```bash
+npm run typecheck
+npm run db:validate
+npm run build
+```
+
+Important:
+
+- `npm run db:validate` and `npm run build` both depend on a real reachable external PostgreSQL database.
+- If the database is down, blocked by network rules, or misconfigured, the correct result is **blocked readiness**.
+
+## 6. Start local development
 
 ```bash
 npm run dev
@@ -57,28 +83,44 @@ Open:
 - <http://localhost:3000>
 - <http://localhost:3000/admin/login>
 
-Default seeded admin account:
+## 7. Understand local vs hosted origin handling
 
-- Email: `admin@aicodingblog.com`
-- Password: `admin123`
+### Local
 
-## 6. Understand the auth/session model
+Use:
+
+```env
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
+```
+
+This keeps metadata, feed, sitemap, and OG URLs consistent with localhost.
+
+### Vercel Development / Preview
+
+Use the same `DATABASE_URL` and `MFA_TOKEN_SECRET`, but choose one of these origin strategies:
+
+1. **Default:** leave `NEXT_PUBLIC_APP_URL` unset and let the app fall back to `VERCEL_URL`.
+2. **Explicit:** set `NEXT_PUBLIC_APP_URL` only if you have a stable alias or custom domain for that environment.
+
+Do not set `NEXT_PUBLIC_APP_URL` to a stale preview hostname.
+
+## 8. Understand the session model
 
 - The app uses a database-backed `auth_session` cookie.
 - Cookies are host-only.
 - Localhost sessions stay on localhost.
-- Vercel preview sessions stay on the exact preview hostname that set them.
-- You should expect to log in again on each preview URL.
+- Each preview hostname has its own login scope.
+- You should expect to log in again when the preview URL changes.
 
-## 7. Understand the upload policy
+## 9. Understand the hosted upload policy
 
-### Local workflow
+### Local / non-Vercel workflow
 
-When you are running outside Vercel-hosted infrastructure, `/api/upload` can still write to `public/uploads`.
+`/api/upload` can still write to `public/uploads`.
 
-### Hosted Vercel workflow
+### Vercel-hosted workflow
 
-When the app is running on Vercel, uploads are disabled on purpose.
+Uploads are intentionally disabled.
 
 Use this instead:
 
@@ -86,51 +128,61 @@ Use this instead:
 2. Copy the final `https://...` URL.
 3. Paste that URL into the post editor's cover image field.
 
-## 8. Connect Vercel
+## 10. Connect Vercel
 
-If this repository remains nested in the workspace, configure the Vercel project root as:
+Keep the Vercel project root set to:
 
 ```text
 upstream/JP-MyBlog/
 ```
 
-Add the same runtime variables in Vercel Development and Preview:
+For the first rollout, configure **Development** and **Preview** with:
 
 ```env
-DATABASE_URL=postgresql://<external-provider>
-NEXT_PUBLIC_APP_URL=https://<deployment-origin>
+DATABASE_URL=postgresql://<shared-external-provider>
 MFA_TOKEN_SECRET=<stable-long-random-secret>
 ```
 
-For the first rollout, one free-tier PostgreSQL database is acceptable.
+Optional on Vercel:
 
-## 9. Run validations
-
-Useful checks:
-
-```bash
-npx tsc --noEmit
-npx prisma validate
-npm run build
-npm test
+```env
+NEXT_PUBLIC_APP_URL=https://<stable-alias-or-custom-domain>
 ```
 
-Notes:
+If you do not have a stable alias/custom domain yet, leave `NEXT_PUBLIC_APP_URL` unset on Vercel and rely on the existing `VERCEL_URL` fallback.
 
-- `prisma validate` needs `DATABASE_URL` to be set.
-- `npm run build` and `npm test` need a reachable database because the app queries Prisma-backed content during runtime/build paths.
+## 11. Run the truthful hosted smoke path
 
-## 10. Troubleshooting
+After the first preview deploy exists and the seeded admin account is available, run:
+
+```bash
+PLAYWRIGHT_BASE_URL=https://<preview-url> PLAYWRIGHT_ADMIN_EMAIL=admin@aicodingblog.com PLAYWRIGHT_ADMIN_PASSWORD=admin123 npm run test:smoke:hosted
+```
+
+This is the initial rollout smoke gate. It targets current admin/API behavior, not stale homepage/blog expectations.
+
+## 12. Know what is not a readiness gate
+
+`tests/blog.spec.ts` is explicitly de-scoped from Phase 3 deployment readiness because it does not yet represent the current homepage/blog UI.
+
+That means:
+
+- `npm test` is still useful for developer workflows.
+- `npm test` is **not** the authoritative deploy gate for the first preview rollout.
+- The authoritative gate is the preflight plus hosted smoke sequence described above.
+
+## 13. Troubleshooting
 
 ### `DATABASE_URL` errors
 
-- Make sure the variable exists in `.env.local` or your shell.
+- Make sure the variable exists in `.env.local` or the Vercel project environment.
 - Hosted deployments cannot use `localhost` for Postgres.
+- A missing or unreachable database means readiness is blocked.
 
 ### MFA works locally but not in hosted environments
 
 - Ensure `MFA_TOKEN_SECRET` is explicitly set in Vercel.
-- Do not rely on the local fallback secret in hosted runtimes.
+- Do not rely on a startup-generated fallback secret in hosted runtimes.
 
 ### Preview login does not carry to another URL
 
@@ -139,5 +191,5 @@ Notes:
 
 ### Uploads fail on Vercel
 
-- That is expected for Phase 2.
+- That is expected for the current rollout.
 - Use an external HTTPS image URL instead.

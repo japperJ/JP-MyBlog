@@ -1,108 +1,152 @@
 # Implementation Notes
 
-## Current deployment target
+## Phase 3 operating target
 
-The app is currently aligned for:
+The app is being finalized for:
 
-- Vercel Hobby **Preview**
-- Vercel **Development**
 - local development from `upstream/JP-MyBlog/`
+- Vercel Development
+- Vercel Hobby Preview
+
+The deployment root stays `upstream/JP-MyBlog/`.
+
+## Final first-rollout workflow
+
+### 1. Shared infrastructure contract
+
+The initial rollout uses one shared external free-tier PostgreSQL database across:
+
+- local development
+- Vercel Development
+- Vercel Preview
+
+This is a deliberate first-rollout compromise. It keeps setup simple, but it also means preview and development data are shared until a later hardening phase introduces stronger environment separation.
+
+### 2. One-time bootstrap sequence
+
+Run from `upstream/JP-MyBlog/`:
+
+```bash
+npm install
+npm run db:generate
+npm run db:push
+npm run db:seed
+```
+
+This sequence is required before a truthful first preview rollout because the app builds and renders Prisma-backed content during build/runtime paths.
+
+### 3. Preflight sequence before claiming readiness
+
+Run from `upstream/JP-MyBlog/`:
+
+```bash
+npm run typecheck
+npm run db:validate
+npm run db:generate
+npm run build
+```
+
+Interpret the results strictly:
+
+- `typecheck` proves TypeScript compatibility only.
+- `db:validate` proves the Prisma schema can load against the configured `DATABASE_URL`.
+- `build` is only meaningful when the external database is reachable because homepage/blog pages query Prisma during build.
+- If the database is unavailable, the result is **blocked readiness**.
+
+### 4. First preview deployment sequence
+
+1. Point the Vercel project root at `upstream/JP-MyBlog/`.
+2. Add `DATABASE_URL` and `MFA_TOKEN_SECRET` to Vercel Development and Preview.
+3. Leave `NEXT_PUBLIC_APP_URL` unset on Vercel by default so runtime helpers can use `VERCEL_URL`.
+4. Set `NEXT_PUBLIC_APP_URL` only when you intentionally want a stable alias/custom domain.
+5. Ensure the shared database has already been pushed and seeded.
+6. Deploy the preview build.
+
+### 5. Hosted smoke validation sequence
+
+After the preview URL exists, run:
+
+```bash
+PLAYWRIGHT_BASE_URL=https://<preview-url> PLAYWRIGHT_ADMIN_EMAIL=admin@aicodingblog.com PLAYWRIGHT_ADMIN_PASSWORD=admin123 npm run test:smoke:hosted
+```
+
+This is the current truthful smoke gate because it exercises:
+
+- `/api/health`
+- admin login and protected pages
+- post/category/tag CRUD behavior
+- OG image generation
+- hosted upload limitation messaging and hosted upload failure behavior
 
 ## Runtime contracts
 
-### 1. Database contract
+### Database contract
 
-A single external PostgreSQL database is the active Phase 2 contract.
+- `DATABASE_URL` is mandatory.
+- Hosted deployments must use a real external PostgreSQL database.
+- `localhost` is never a valid hosted database target.
 
-That contract now applies consistently across:
+### Origin contract
 
-- Prisma datasource/runtime
-- session storage
-- MFA-related user state
-- post, category, and tag CRUD
+- Local development should keep `NEXT_PUBLIC_APP_URL=http://localhost:3000`.
+- Hosted preview/development can rely on `VERCEL_URL` fallback when no stable alias exists.
+- Metadata, feed, sitemap, canonical URLs, and OG URLs all follow that same origin strategy.
 
-Hosted deployments fail fast if `DATABASE_URL` is missing or still points at `localhost`.
+### Session contract
 
-### 2. Auth and cookie contract
+- The app uses a database-backed `auth_session` cookie.
+- Cookies are host-only and same-origin.
+- Each preview hostname is its own login scope.
 
-The app uses a database-backed `auth_session` cookie.
+### MFA contract
 
-Cookie behavior:
+- `MFA_TOKEN_SECRET` is required for hosted deployments.
+- It should stay stable across redeploys in the same environment.
 
-- host-only cookie
-- `httpOnly`
-- `sameSite: "strict"`
-- `secure` only in production
-- same-origin session checks in middleware
+### Upload contract
 
-Practical consequence:
+- Local/non-Vercel flows may still write to `public/uploads`.
+- Vercel-hosted flows intentionally fail closed at `/api/upload`.
+- Editors should use external HTTPS image URLs on Vercel.
 
-- a localhost login does not carry to Vercel,
-- one preview deployment does not share a session with another preview deployment,
-- each deployment origin behaves as an independent admin session scope.
+## Readiness gate definition
 
-### 3. MFA contract
+### Gating checks
 
-`MFA_TOKEN_SECRET` is now part of the explicit hosted environment surface.
+- `npm install`
+- `npm run typecheck`
+- `npm run db:validate`
+- `npm run db:generate`
+- `npm run db:push`
+- `npm run db:seed`
+- `npm run build`
+- `npm run test:smoke:hosted` against a real preview URL
 
-Why:
+### Non-gating / explicitly de-scoped
 
-- MFA login uses a short-lived signed challenge token between password login and TOTP verification.
-- Hosted environments need one stable signing secret per deployment environment.
-- Falling back to a random startup secret is acceptable only for non-hosted local workflows.
+- `tests/blog.spec.ts`
+  - Phase 3 status: **de-scoped from deployment readiness**
+  - Why: it still needs to be realigned to the current homepage/blog UI before it can serve as a truthful release signal
 
-### 4. URL and metadata contract
+## Known limitations and non-goals
 
-The app no longer relies on hardcoded production domains.
-
-These surfaces now use the configured or request-derived origin:
-
-- root metadata
-- post metadata
-- sitemap
-- RSS feed
-- OG image footer/branding host
-
-`NEXT_PUBLIC_APP_URL` remains the explicit public base URL for non-request contexts.
-
-### 5. Upload contract
-
-Filesystem uploads are not treated as a hosted capability.
-
-Current policy:
-
-- local/non-Vercel workflow: `/api/upload` can still write to `public/uploads`
-- Vercel-hosted workflow: `/api/upload` returns a clear failure response
-- editor workflow on Vercel: paste an external `https://...` image URL manually
-
-### 6. Next.js deployment contract
-
-`output: "standalone"` was removed.
-
-Reason:
-
-- standalone output is mainly useful for self-hosted/container deployment targets
-- Vercel already handles Next.js tracing and deployment packaging natively
-
-## Test model
-
-Playwright is now aligned to the same runtime assumptions:
-
-- local default base URL: `http://127.0.0.1:3000`
-- hosted override: `PLAYWRIGHT_BASE_URL`
-- admin tests log in before accessing protected routes
-- API tests authenticate before protected mutations
-- media/admin coverage checks for hosted upload limitation messaging
-
-## Operational limitations still deferred
-
-These are intentionally out of Phase 2 scope:
+These are still intentionally out of scope for the first rollout:
 
 - object storage for hosted uploads
+- checked-in Prisma migrations
 - production-grade distributed rate limiting
-- baseline Prisma migrations checked into the repository
-- session sharing across preview hosts or custom aliases
+- separate databases per environment
+- session sharing across preview hosts
+
+## Truthfulness requirement
+
+The project should only be described as ready for first preview deployment when both of these are true:
+
+1. the preflight sequence succeeded against a real reachable external PostgreSQL database
+2. the hosted smoke sequence succeeded against a real preview URL
+
+If either prerequisite is missing, the correct verdict is blocked by external prerequisites rather than ready.
 
 ## Planning-environment note
 
-No SQL tool was available in the planning environment used for this phase, so SQL-specific todos were not updated and no live database introspection was performed here.
+No SQL tool was available in the planning environment used for this phase, so SQL-specific todos were not updated and no direct SQL inspection was performed here.
