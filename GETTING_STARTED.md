@@ -1,363 +1,143 @@
 # Getting Started with AI Coding Blog
 
-This guide will walk you through setting up and running your AI Coding Blog.
+This guide assumes the app lives at `upstream/JP-MyBlog/` inside the current workspace and is being prepared for Vercel Hobby preview/development use.
 
-## Table of Contents
+## 1. Move into the app root
 
-1. [Prerequisites](#prerequisites)
-2. [Installation](#installation)
-3. [Configuration](#configuration)
-4. [Running the Application](#running-the-application)
-5. [Creating Your First Post](#creating-your-first-post)
-6. [Customization](#customization)
-7. [Deployment](#deployment)
-
-## Prerequisites
-
-Before you begin, ensure you have the following installed:
-
-- **Docker** (recommended) - [Install Docker](https://docs.docker.com/get-docker/)
-- **Docker Compose** - Usually comes with Docker Desktop
-- **Node.js 20+** (if running without Docker) - [Install Node.js](https://nodejs.org/)
-- **Git** - [Install Git](https://git-scm.com/)
-
-## Installation
-
-### Step 1: Clone the Repository
+From the workspace root:
 
 ```bash
-git clone <your-repository-url>
-cd "JP MyBlog"
+cd upstream/JP-MyBlog
 ```
 
-### Step 2: Install Dependencies (if not using Docker)
+## 2. Install dependencies
 
 ```bash
 npm install
 ```
 
-## Configuration
-
-### Step 1: Environment Variables
-
-Copy the example environment file:
+## 3. Configure environment variables
 
 ```bash
 cp .env.example .env.local
 ```
 
-### Step 2: Update Environment Variables
-
-Open `.env.local` and configure:
+Set these values in `.env.local`:
 
 ```env
-# Database - Keep default for Docker, or update for external PostgreSQL
-DATABASE_URL="postgresql://bloguser:blogpassword@localhost:5432/aicodingblog"
-
-# Authentication - IMPORTANT: Change this to a random string (min 32 chars)
-NEXTAUTH_SECRET="your-super-secret-key-minimum-32-characters-long"
-NEXTAUTH_URL="http://localhost:3000"
-
-# App
-NODE_ENV="development"
+DATABASE_URL="postgresql://<external-postgres>"
 NEXT_PUBLIC_APP_URL="http://localhost:3000"
+MFA_TOKEN_SECRET="replace-with-a-long-random-secret"
 ```
 
-**Security Note:** For production, generate a strong `NEXTAUTH_SECRET`:
-```bash
-openssl rand -base64 32
-```
+### What each variable does
 
-## Running the Application
+- `DATABASE_URL` powers Prisma, content CRUD, sessions, and MFA-related persistence.
+- `NEXT_PUBLIC_APP_URL` is the public origin used for metadata, sitemap, feed, and OG URLs.
+- `MFA_TOKEN_SECRET` signs short-lived MFA challenge tokens and must stay stable in hosted environments.
 
-### Option 1: Using Docker (Recommended)
+## 4. Initialize the database once
 
-This is the easiest way to get started:
-
-```bash
-# Start all services (app + PostgreSQL)
-docker-compose up -d
-
-# Wait for services to start (about 10-15 seconds)
-# You can check status with: docker-compose ps
-
-# Run database migrations
-docker-compose exec app npx prisma migrate dev
-
-# Seed the database with sample data
-docker-compose exec app npm run db:seed
-```
-
-Your blog is now running at: **http://localhost:3000**
-
-### Option 2: Without Docker
-
-If you prefer to run without Docker:
+This repo does not currently include checked-in Prisma migrations, so the smallest setup path is:
 
 ```bash
-# Start PostgreSQL separately (example using Docker)
-docker run -d \
-  --name postgres \
-  -e POSTGRES_USER=bloguser \
-  -e POSTGRES_PASSWORD=blogpassword \
-  -e POSTGRES_DB=aicodingblog \
-  -p 5432:5432 \
-  postgres:16-alpine
-
-# Run migrations
-npm run db:migrate
-
-# Seed database
+npm run db:generate
+npm run db:push
 npm run db:seed
+```
 
-# Start development server
+## 5. Start local development
+
+```bash
 npm run dev
 ```
 
-Visit: **http://localhost:3000**
+Open:
 
-## Creating Your First Post
+- <http://localhost:3000>
+- <http://localhost:3000/admin/login>
 
-### Step 1: Access the Admin Dashboard
+Default seeded admin account:
 
-Navigate to: **http://localhost:3000/admin**
+- Email: `admin@aicodingblog.com`
+- Password: `admin123`
 
-### Step 2: Create a New Post
+## 6. Understand the auth/session model
 
-1. Click **"Create New Post"**
-2. Fill in the form:
-   - **Title**: Your post title (required)
-   - **Excerpt**: Short description (optional but recommended)
-   - **Content**: Write in Markdown (required)
-   - **Cover Image**: URL to an image (optional)
-   - **Categories**: Select relevant categories
-   - **Tags**: Tag your post
-   - **Publish**: Toggle to make it public immediately
+- The app uses a database-backed `auth_session` cookie.
+- Cookies are host-only.
+- Localhost sessions stay on localhost.
+- Vercel preview sessions stay on the exact preview hostname that set them.
+- You should expect to log in again on each preview URL.
 
-### Step 3: Write Content in Markdown
+## 7. Understand the upload policy
 
-Example post content:
+### Local workflow
 
-```markdown
-# My First AI Blog Post
+When you are running outside Vercel-hosted infrastructure, `/api/upload` can still write to `public/uploads`.
 
-Welcome to my blog about AI and coding!
+### Hosted Vercel workflow
 
-## Introduction
+When the app is running on Vercel, uploads are disabled on purpose.
 
-This is where I'll share my journey learning AI...
+Use this instead:
 
-## Key Concepts
+1. Upload the image to an HTTPS-accessible host.
+2. Copy the final `https://...` URL.
+3. Paste that URL into the post editor's cover image field.
 
-- Machine Learning
-- Deep Learning
-- Neural Networks
+## 8. Connect Vercel
 
-## Code Example
+If this repository remains nested in the workspace, configure the Vercel project root as:
 
-\`\`\`python
-def hello_ai():
-    print("Hello, AI World!")
-\`\`\`
-
-## Conclusion
-
-Stay tuned for more posts!
+```text
+upstream/JP-MyBlog/
 ```
 
-### Step 4: Save and Publish
+Add the same runtime variables in Vercel Development and Preview:
 
-Click **"Create Post"** to save as a draft, or toggle "Publish immediately" first.
-
-## Customization
-
-### Change Blog Title and Description
-
-Edit `app/layout.tsx`:
-
-```typescript
-export const metadata: Metadata = {
-  title: {
-    default: "Your Blog Name",
-    template: "%s | Your Blog Name",
-  },
-  description: "Your blog description",
-  // ...
-};
+```env
+DATABASE_URL=postgresql://<external-provider>
+NEXT_PUBLIC_APP_URL=https://<deployment-origin>
+MFA_TOKEN_SECRET=<stable-long-random-secret>
 ```
 
-### Update Homepage
+For the first rollout, one free-tier PostgreSQL database is acceptable.
 
-Edit `app/page.tsx` to customize the hero section and layout.
+## 9. Run validations
 
-### Add More Categories
-
-Navigate to **http://localhost:3000/admin** and create categories through the admin interface, or add them directly in the seed script.
-
-### Customize Theme Colors
-
-Edit `app/globals.css` to change color variables:
-
-```css
-:root {
-  --primary: 222.2 47.4% 11.2%;
-  --secondary: 210 40% 96.1%;
-  /* ... */
-}
-```
-
-### Change Fonts
-
-Edit `app/layout.tsx` to use different Google Fonts:
-
-```typescript
-import { Roboto, Fira_Code } from "next/font/google";
-
-const roboto = Roboto({
-  weight: ['400', '700'],
-  subsets: ["latin"],
-  variable: "--font-roboto",
-});
-```
-
-## Useful Commands
-
-### Database Management
+Useful checks:
 
 ```bash
-# Open Prisma Studio (visual database editor)
-npm run db:studio
-
-# Create a new migration
-npm run db:migrate
-
-# Reset database (WARNING: Deletes all data)
-npx prisma migrate reset
-
-# Generate Prisma Client (after schema changes)
-npm run db:generate
-```
-
-### Docker Commands
-
-```bash
-# View logs
-docker-compose logs -f
-
-# Stop all services
-docker-compose down
-
-# Rebuild after changes
-docker-compose up -d --build
-
-# Access app container shell
-docker-compose exec app sh
-
-# View database logs
-docker-compose logs postgres
-```
-
-### Development
-
-```bash
-# Type check
-npm run type-check
-
-# Lint code
-npm run lint
-
-# Build for production
+npx tsc --noEmit
+npx prisma validate
 npm run build
-
-# Start production server
-npm run start
+npm test
 ```
 
-## Deployment
+Notes:
 
-See [README.md](./README.md#deployment) for detailed deployment instructions for:
+- `prisma validate` needs `DATABASE_URL` to be set.
+- `npm run build` and `npm test` need a reachable database because the app queries Prisma-backed content during runtime/build paths.
 
-- Docker Compose (Production)
-- Azure Container Instances
-- AWS ECS
-- Google Cloud Run
-- Vercel (requires database separately)
+## 10. Troubleshooting
 
-### Quick Production Deploy with Docker
+### `DATABASE_URL` errors
 
-```bash
-# Create production env file
-cp .env.example .env
+- Make sure the variable exists in `.env.local` or your shell.
+- Hosted deployments cannot use `localhost` for Postgres.
 
-# Update .env with production values
+### MFA works locally but not in hosted environments
 
-# Start production stack
-docker-compose -f docker-compose.production.yml up -d --build
+- Ensure `MFA_TOKEN_SECRET` is explicitly set in Vercel.
+- Do not rely on the local fallback secret in hosted runtimes.
 
-# Run migrations
-docker-compose -f docker-compose.production.yml exec app npx prisma migrate deploy
-```
+### Preview login does not carry to another URL
 
-## Troubleshooting
+- That is expected.
+- Sessions are host-only and tied to the exact deployment origin.
 
-### Port Already in Use
+### Uploads fail on Vercel
 
-If port 3000 or 5432 is in use:
-
-```bash
-# Change ports in docker-compose.yml
-ports:
-  - "3001:3000"  # Change 3000 to 3001
-```
-
-### Database Connection Failed
-
-1. Check if PostgreSQL is running:
-   ```bash
-   docker-compose ps
-   ```
-
-2. Verify `DATABASE_URL` in `.env.local`
-
-3. View PostgreSQL logs:
-   ```bash
-   docker-compose logs postgres
-   ```
-
-### Prisma Client Not Generated
-
-```bash
-# In Docker
-docker-compose exec app npx prisma generate
-
-# Locally
-npm run db:generate
-```
-
-### Changes Not Reflecting
-
-```bash
-# Clear Next.js cache
-rm -rf .next
-
-# Restart Docker services
-docker-compose restart app
-```
-
-## Next Steps
-
-1. **Customize your blog** - Update colors, fonts, and layout
-2. **Write content** - Create posts about AI, coding, and tech
-3. **Add features** - Comments, newsletter, analytics
-4. **Deploy** - Share your blog with the world
-5. **SEO** - Optimize for search engines (sitemap included)
-
-## Getting Help
-
-- Check the [README.md](./README.md) for more details
-- Review the code - it's well-commented
-- Open an issue on GitHub
-
----
-
-**Happy Blogging! 🚀**
+- That is expected for Phase 2.
+- Use an external HTTPS image URL instead.

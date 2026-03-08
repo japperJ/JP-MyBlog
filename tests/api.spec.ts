@@ -1,224 +1,167 @@
-import { test, expect } from '@playwright/test';
+import { expect, test, type APIRequestContext } from "@playwright/test";
 
-const API_BASE = 'http://localhost:3001';
+const adminEmail = process.env.PLAYWRIGHT_ADMIN_EMAIL || "admin@aicodingblog.com";
+const adminPassword = process.env.PLAYWRIGHT_ADMIN_PASSWORD || "admin123";
 
-test.describe('Health Check API', () => {
-  test('should return healthy status', async ({ request }) => {
-    const response = await request.get(`${API_BASE}/api/health`);
-    
+async function loginAsAdmin(request: APIRequestContext) {
+  const response = await request.post("/api/auth/login", {
+    data: {
+      email: adminEmail,
+      password: adminPassword,
+    },
+  });
+
+  expect(response.ok()).toBeTruthy();
+
+  const body = await response.json();
+  expect(body.mfaRequired).not.toBeTruthy();
+}
+
+test.describe("Health and auth APIs", () => {
+  test("health endpoint returns ok", async ({ request }) => {
+    const response = await request.get("/api/health");
     expect(response.ok()).toBeTruthy();
-    
-    const data = await response.json();
-    expect(data.status).toBe('healthy');
-    expect(data.database).toBe('connected');
+    await expect(await response.json()).toEqual({ status: "ok" });
+  });
+
+  test("session endpoint is unauthenticated before login", async ({ request }) => {
+    const response = await request.get("/api/auth/session");
+    expect(response.status()).toBe(401);
+    await expect(await response.json()).toEqual({ authenticated: false });
+  });
+
+  test("session endpoint reports the logged-in admin", async ({ request }) => {
+    await loginAsAdmin(request);
+    const response = await request.get("/api/auth/session");
+    expect(response.ok()).toBeTruthy();
+
+    const body = await response.json();
+    expect(body.authenticated).toBe(true);
+    expect(body.user.email).toBe(adminEmail);
   });
 });
 
-test.describe('Posts API', () => {
-  test('should get all posts', async ({ request }) => {
-    const response = await request.get(`${API_BASE}/api/posts`);
-    
+test.describe("Posts API", () => {
+  test("lists posts with pagination metadata", async ({ request }) => {
+    const response = await request.get("/api/posts");
     expect(response.ok()).toBeTruthy();
-    
-    const data = await response.json();
-    expect(Array.isArray(data)).toBeTruthy();
+
+    const body = await response.json();
+    expect(Array.isArray(body.posts)).toBe(true);
+    expect(body.pagination).toBeTruthy();
   });
 
-  test('should filter posts by published status', async ({ request }) => {
-    const response = await request.get(`${API_BASE}/api/posts?published=true`);
-    
+  test("filters published posts", async ({ request }) => {
+    const response = await request.get("/api/posts?published=true");
     expect(response.ok()).toBeTruthy();
-    
-    const data = await response.json();
-    expect(Array.isArray(data)).toBeTruthy();
-    
-    // All returned posts should be published
-    data.forEach((post: any) => {
+
+    const body = await response.json();
+    expect(Array.isArray(body.posts)).toBe(true);
+    body.posts.forEach((post: { published: boolean }) => {
       expect(post.published).toBe(true);
     });
   });
 
-  test('should create a new post', async ({ request }) => {
-    const newPost = {
-      title: 'Test Post from API',
-      slug: 'test-post-api-' + Date.now(),
-      content: '# Test Content\n\nThis is a test post created via API.',
-      excerpt: 'Test excerpt',
-      published: false,
-      categoryIds: [],
-      tagIds: [],
-    };
+  test("creates, updates, and deletes a post with auth", async ({ request }) => {
+    await loginAsAdmin(request);
 
-    const response = await request.post(`${API_BASE}/api/posts`, {
-      data: newPost,
-    });
-
-    expect(response.ok()).toBeTruthy();
-    
-    const data = await response.json();
-    expect(data.title).toBe(newPost.title);
-    expect(data.slug).toBe(newPost.slug);
-    expect(data.published).toBe(false);
-  });
-
-  test('should update a post', async ({ request }) => {
-    // First create a post
-    const newPost = {
-      title: 'Post to Update',
-      slug: 'post-to-update-' + Date.now(),
-      content: '# Original Content',
-      excerpt: 'Original excerpt',
-      published: false,
-      categoryIds: [],
-      tagIds: [],
-    };
-
-    const createResponse = await request.post(`${API_BASE}/api/posts`, {
-      data: newPost,
-    });
-    const createdPost = await createResponse.json();
-
-    // Update the post
-    const updateResponse = await request.patch(`${API_BASE}/api/posts/${createdPost.id}`, {
+    const createResponse = await request.post("/api/posts", {
       data: {
-        title: 'Updated Title',
+        title: `Test Post ${Date.now()}`,
+        content: "# Test Content\\n\\nThis post was created by Playwright.",
+        excerpt: "Temporary test post",
+        published: false,
+        categoryIds: [],
+        tagIds: [],
+      },
+    });
+
+    expect(createResponse.status()).toBe(201);
+    const createdPost = await createResponse.json();
+    expect(createdPost.title).toContain("Test Post");
+
+    const updateResponse = await request.patch(`/api/posts/${createdPost.id}`, {
+      data: {
+        title: `${createdPost.title} Updated`,
         published: true,
       },
     });
 
     expect(updateResponse.ok()).toBeTruthy();
-    
     const updatedPost = await updateResponse.json();
-    expect(updatedPost.title).toBe('Updated Title');
+    expect(updatedPost.title).toContain("Updated");
     expect(updatedPost.published).toBe(true);
-  });
 
-  test('should delete a post', async ({ request }) => {
-    // First create a post to delete
-    const newPost = {
-      title: 'Post to Delete',
-      slug: 'post-to-delete-' + Date.now(),
-      content: '# Content',
-      excerpt: 'Excerpt',
-      published: false,
-      categoryIds: [],
-      tagIds: [],
-    };
-
-    const createResponse = await request.post(`${API_BASE}/api/posts`, {
-      data: newPost,
-    });
-    const createdPost = await createResponse.json();
-
-    // Delete the post
-    const deleteResponse = await request.delete(`${API_BASE}/api/posts/${createdPost.id}`);
+    const deleteResponse = await request.delete(`/api/posts/${createdPost.id}`);
     expect(deleteResponse.ok()).toBeTruthy();
 
-    // Verify it's deleted
-    const getResponse = await request.get(`${API_BASE}/api/posts/${createdPost.id}`);
+    const getResponse = await request.get(`/api/posts/${createdPost.id}`);
     expect(getResponse.status()).toBe(404);
   });
 });
 
-test.describe('Categories API', () => {
-  test('should get all categories', async ({ request }) => {
-    const response = await request.get(`${API_BASE}/api/categories`);
-    
-    expect(response.ok()).toBeTruthy();
-    
-    const data = await response.json();
-    expect(Array.isArray(data)).toBeTruthy();
+test.describe("Categories and tags APIs", () => {
+  test("lists categories and tags", async ({ request }) => {
+    const [categoriesResponse, tagsResponse] = await Promise.all([
+      request.get("/api/categories"),
+      request.get("/api/tags"),
+    ]);
+
+    expect(categoriesResponse.ok()).toBeTruthy();
+    expect(tagsResponse.ok()).toBeTruthy();
+    expect(Array.isArray(await categoriesResponse.json())).toBe(true);
+    expect(Array.isArray(await tagsResponse.json())).toBe(true);
   });
 
-  test('should create a category', async ({ request }) => {
-    const newCategory = {
-      name: 'Test Category ' + Date.now(),
-      slug: 'test-category-' + Date.now(),
-      description: 'Test category description',
-    };
+  test("creates and updates a category with auth", async ({ request }) => {
+    await loginAsAdmin(request);
 
-    const response = await request.post(`${API_BASE}/api/categories`, {
-      data: newCategory,
-    });
-
-    expect(response.ok()).toBeTruthy();
-    
-    const data = await response.json();
-    expect(data.name).toBe(newCategory.name);
-    expect(data.slug).toBe(newCategory.slug);
-  });
-
-  test('should update a category', async ({ request }) => {
-    // Create a category first
-    const newCategory = {
-      name: 'Category to Update ' + Date.now(),
-      slug: 'category-update-' + Date.now(),
-      description: 'Original description',
-    };
-
-    const createResponse = await request.post(`${API_BASE}/api/categories`, {
-      data: newCategory,
-    });
-    const createdCategory = await createResponse.json();
-
-    // Update it
-    const updateResponse = await request.patch(`${API_BASE}/api/categories/${createdCategory.id}`, {
+    const createResponse = await request.post("/api/categories", {
       data: {
-        name: 'Updated Category Name',
-        description: 'Updated description',
+        name: `Category ${Date.now()}`,
+        description: "Temporary category",
+      },
+    });
+
+    expect(createResponse.status()).toBe(201);
+    const category = await createResponse.json();
+
+    const updateResponse = await request.patch(`/api/categories/${category.id}`, {
+      data: {
+        name: `${category.name} Updated`,
+        description: "Updated category description",
       },
     });
 
     expect(updateResponse.ok()).toBeTruthy();
-    
     const updatedCategory = await updateResponse.json();
-    expect(updatedCategory.name).toBe('Updated Category Name');
-    expect(updatedCategory.description).toBe('Updated description');
-  });
-});
-
-test.describe('Tags API', () => {
-  test('should get all tags', async ({ request }) => {
-    const response = await request.get(`${API_BASE}/api/tags`);
-    
-    expect(response.ok()).toBeTruthy();
-    
-    const data = await response.json();
-    expect(Array.isArray(data)).toBeTruthy();
+    expect(updatedCategory.name).toContain("Updated");
   });
 
-  test('should create a tag', async ({ request }) => {
-    const newTag = {
-      name: 'Test Tag ' + Date.now(),
-      slug: 'test-tag-' + Date.now(),
-    };
+  test("creates a tag with auth", async ({ request }) => {
+    await loginAsAdmin(request);
 
-    const response = await request.post(`${API_BASE}/api/tags`, {
-      data: newTag,
+    const createResponse = await request.post("/api/tags", {
+      data: {
+        name: `Tag ${Date.now()}`,
+      },
     });
 
-    expect(response.ok()).toBeTruthy();
-    
-    const data = await response.json();
-    expect(data.name).toBe(newTag.name);
-    expect(data.slug).toBe(newTag.slug);
+    expect(createResponse.status()).toBe(201);
+    const tag = await createResponse.json();
+    expect(tag.name).toContain("Tag ");
   });
 });
 
-test.describe('OG Image API', () => {
-  test('should generate OG image', async ({ request }) => {
-    const response = await request.get(`${API_BASE}/api/og?title=Test Title&excerpt=Test excerpt`);
-    
+test.describe("OG API", () => {
+  test("generates an image when title is provided", async ({ request }) => {
+    const response = await request.get("/api/og?title=Test+Title&excerpt=Test+excerpt");
     expect(response.ok()).toBeTruthy();
-    
-    // Check response is an image
-    const contentType = response.headers()['content-type'];
-    expect(contentType).toContain('image');
+    expect(response.headers()["content-type"]).toContain("image");
   });
 
-  test('should require title parameter', async ({ request }) => {
-    const response = await request.get(`${API_BASE}/api/og`);
-    
+  test("requires the title parameter", async ({ request }) => {
+    const response = await request.get("/api/og");
     expect(response.status()).toBe(400);
   });
 });

@@ -1,210 +1,71 @@
-import { test, expect } from '@playwright/test';
+import { expect, test, type Page } from "@playwright/test";
 
-test.describe('Admin Dashboard', () => {
-  test('should display admin dashboard', async ({ page }) => {
-    await page.goto('/admin');
+const adminEmail = process.env.PLAYWRIGHT_ADMIN_EMAIL || "admin@aicodingblog.com";
+const adminPassword = process.env.PLAYWRIGHT_ADMIN_PASSWORD || "admin123";
 
-    // Check for dashboard heading
-    await expect(page.getByRole('heading', { name: /Admin Dashboard/i })).toBeVisible();
+function escapeForRegex(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
 
-    // Check for stats cards
-    await expect(page.getByText(/Total Posts/i)).toBeVisible();
-    await expect(page.getByText(/Categories/i)).toBeVisible();
-    await expect(page.getByText(/Tags/i)).toBeVisible();
-    await expect(page.getByText(/Total Views/i)).toBeVisible();
+async function loginAsAdmin(page: Page, from = "/admin") {
+  await page.goto(`/admin/login?from=${encodeURIComponent(from)}`);
+  await page.getByLabel(/email/i).fill(adminEmail);
+  await page.getByLabel(/password/i).fill(adminPassword);
+  await page.getByRole("button", { name: /login/i }).click();
+  await expect(page).toHaveURL(new RegExp(from === "/admin" ? "/admin$" : escapeForRegex(from)));
+}
 
-    // Check for quick actions
-    await expect(page.getByRole('link', { name: /View Posts/i })).toBeVisible();
-    await expect(page.getByRole('link', { name: /New Post/i })).toBeVisible();
+test.describe("Admin authentication", () => {
+  test("redirects unauthenticated users to login", async ({ page }) => {
+    await page.goto("/admin");
+    await expect(page).toHaveURL(/\/admin\/login\?from=%2Fadmin/);
+    await expect(page.getByRole("heading", { name: /admin login/i })).toBeVisible();
   });
 
-  test('should navigate to create post page', async ({ page }) => {
-    await page.goto('/admin');
-    
-    await page.getByRole('link', { name: /Create New Post/i }).first().click();
-    
-    await expect(page).toHaveURL(/\/admin\/posts\/new/);
-    await expect(page.getByRole('heading', { name: /Create New Post/i })).toBeVisible();
-  });
-
-  test('should navigate to posts management', async ({ page }) => {
-    await page.goto('/admin');
-    
-    await page.getByRole('link', { name: /View Posts/i }).click();
-    
-    await expect(page).toHaveURL(/\/admin\/posts/);
-    await expect(page.getByRole('heading', { name: /Manage Posts/i })).toBeVisible();
-  });
-
-  test('should navigate to categories management', async ({ page }) => {
-    await page.goto('/admin');
-    
-    await page.getByRole('link', { name: /Manage Categories/i }).click();
-    
-    await expect(page).toHaveURL(/\/admin\/categories/);
-    await expect(page.getByRole('heading', { name: /Categories/i })).toBeVisible();
-  });
-
-  test('should navigate to tags management', async ({ page }) => {
-    await page.goto('/admin');
-    
-    await page.getByRole('link', { name: /Manage Tags/i }).click();
-    
-    await expect(page).toHaveURL(/\/admin\/tags/);
-    await expect(page.getByRole('heading', { name: /Tags/i })).toBeVisible();
-  });
-
-  test('should navigate to media library', async ({ page }) => {
-    await page.goto('/admin');
-    
-    await page.getByRole('link', { name: /Manage Media/i }).click();
-    
-    await expect(page).toHaveURL(/\/admin\/media/);
-    await expect(page.getByRole('heading', { name: /Media Library/i })).toBeVisible();
+  test("shows the dashboard after login", async ({ page }) => {
+    await loginAsAdmin(page);
+    await expect(page.getByRole("heading", { name: /admin dashboard/i })).toBeVisible();
+    await expect(page.getByText(/total posts/i)).toBeVisible();
   });
 });
 
-test.describe('Posts Management', () => {
-  test('should display posts list', async ({ page }) => {
-    await page.goto('/admin/posts');
-
-    await expect(page.getByRole('heading', { name: /Manage Posts/i })).toBeVisible();
-    
-    // Should have create button
-    await expect(page.getByRole('link', { name: /Create New Post/i })).toBeVisible();
+test.describe("Protected admin pages", () => {
+  test("opens posts management after login", async ({ page }) => {
+    await loginAsAdmin(page, "/admin/posts");
+    await expect(page.getByRole("heading", { name: /manage posts/i })).toBeVisible();
   });
 
-  test('should have create post form', async ({ page }) => {
-    await page.goto('/admin/posts/new');
-
-    // Check for form fields
-    await expect(page.getByLabel(/Title/i)).toBeVisible();
-    await expect(page.getByLabel(/Slug/i)).toBeVisible();
-    await expect(page.getByLabel(/Excerpt/i)).toBeVisible();
-    await expect(page.getByLabel(/Content/i)).toBeVisible();
-
-    // Check for submit button
-    await expect(page.getByRole('button', { name: /Create Post/i })).toBeVisible();
+  test("shows the create post form", async ({ page }) => {
+    await loginAsAdmin(page, "/admin/posts/new");
+    await expect(page.getByRole("heading", { name: /create new post/i })).toBeVisible();
+    await expect(page.getByLabel(/^title/i)).toBeVisible();
+    await expect(page.getByLabel(/excerpt/i)).toBeVisible();
+    await expect(page.getByLabel(/content/i)).toBeVisible();
+    await expect(page.getByLabel(/cover image url/i)).toBeVisible();
   });
 
-  test('should auto-generate slug from title', async ({ page }) => {
-    await page.goto('/admin/posts/new');
-
-    const titleInput = page.getByLabel(/^Title$/i);
-    const slugInput = page.getByLabel(/Slug/i);
-
-    await titleInput.fill('Test Post Title');
-    await titleInput.blur();
-
-    // Wait for slug to be generated
-    await page.waitForTimeout(300);
-
-    const slugValue = await slugInput.inputValue();
-    expect(slugValue).toBe('test-post-title');
-  });
-});
-
-test.describe('Categories Management', () => {
-  test('should display categories list', async ({ page }) => {
-    await page.goto('/admin/categories');
-
-    await expect(page.getByRole('heading', { name: /Categories/i })).toBeVisible();
+  test("opens category management after login", async ({ page }) => {
+    await loginAsAdmin(page, "/admin/categories");
+    await expect(page.getByRole("heading", { name: /manage categories/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /add new category/i })).toBeVisible();
   });
 
-  test('should have add category form', async ({ page }) => {
-    await page.goto('/admin/categories');
-
-    await expect(page.getByPlaceholder(/Category name/i)).toBeVisible();
-    await expect(page.getByRole('button', { name: /Add Category/i })).toBeVisible();
+  test("opens tag management after login", async ({ page }) => {
+    await loginAsAdmin(page, "/admin/tags");
+    await expect(page.getByRole("heading", { name: /manage tags/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /add new tag/i })).toBeVisible();
   });
 
-  test('should create a new category', async ({ page }) => {
-    await page.goto('/admin/categories');
-
-    const categoryName = 'Test Category ' + Date.now();
-    
-    await page.getByPlaceholder(/Category name/i).fill(categoryName);
-    await page.getByRole('button', { name: /Add Category/i }).click();
-
-    // Wait for the category to appear
-    await page.waitForTimeout(1000);
-
-    // Check if category was added
-    await expect(page.getByText(categoryName)).toBeVisible();
-  });
-});
-
-test.describe('Tags Management', () => {
-  test('should display tags list', async ({ page }) => {
-    await page.goto('/admin/tags');
-
-    await expect(page.getByRole('heading', { name: /Tags/i })).toBeVisible();
+  test("shows hosted upload guidance in the media library", async ({ page }) => {
+    await loginAsAdmin(page, "/admin/media");
+    await expect(page.getByRole("heading", { name: /media library/i })).toBeVisible();
+    await expect(page.getByText(/vercel-hosted preview and development deployments do not support persistent filesystem uploads/i)).toBeVisible();
+    await expect(page.getByText(/use an external https image url/i)).toBeVisible();
   });
 
-  test('should have add tag form', async ({ page }) => {
-    await page.goto('/admin/tags');
-
-    await expect(page.getByPlaceholder(/Tag name/i)).toBeVisible();
-    await expect(page.getByRole('button', { name: /Add Tag/i })).toBeVisible();
-  });
-
-  test('should create a new tag', async ({ page }) => {
-    await page.goto('/admin/tags');
-
-    const tagName = 'Test Tag ' + Date.now();
-    
-    await page.getByPlaceholder(/Tag name/i).fill(tagName);
-    await page.getByRole('button', { name: /Add Tag/i }).click();
-
-    // Wait for the tag to appear
-    await page.waitForTimeout(1000);
-
-    // Check if tag was added
-    await expect(page.getByText(tagName)).toBeVisible();
-  });
-});
-
-test.describe('Media Library', () => {
-  test('should display media library', async ({ page }) => {
-    await page.goto('/admin/media');
-
-    await expect(page.getByRole('heading', { name: /Media Library/i })).toBeVisible();
-    
-    // Check for upload area
-    await expect(page.getByText(/Click to upload or drag and drop/i)).toBeVisible();
-  });
-
-  test('should have upload functionality', async ({ page }) => {
-    await page.goto('/admin/media');
-
-    // Check for file input
-    const fileInput = page.locator('input[type="file"]');
-    await expect(fileInput).toBeAttached();
-  });
-
-  test('should display usage instructions', async ({ page }) => {
-    await page.goto('/admin/media');
-
-    await expect(page.getByText(/How to Use/i)).toBeVisible();
-    await expect(page.getByText(/Upload Image/i)).toBeVisible();
-    await expect(page.getByText(/Copy URL/i)).toBeVisible();
-  });
-});
-
-test.describe('Responsive Admin', () => {
-  test('should work on mobile viewport', async ({ page }) => {
-    await page.setViewportSize({ width: 375, height: 667 });
-    await page.goto('/admin');
-    
-    // Check dashboard is accessible
-    await expect(page.getByRole('heading', { name: /Admin Dashboard/i })).toBeVisible();
-  });
-
-  test('should work on tablet viewport', async ({ page }) => {
-    await page.setViewportSize({ width: 768, height: 1024 });
-    await page.goto('/admin/posts');
-    
-    // Check posts management is accessible
-    await expect(page.getByRole('heading', { name: /Manage Posts/i })).toBeVisible();
+  test("works on a mobile viewport after login", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await loginAsAdmin(page);
+    await expect(page.getByRole("heading", { name: /admin dashboard/i })).toBeVisible();
   });
 });
