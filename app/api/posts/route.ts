@@ -1,42 +1,43 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
+import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 import { slugify } from "@/lib/utils";
 import { calculateReadingTime } from "@/lib/markdown";
-import { z } from "zod";
+
+const coverImageSchema = z
+  .string()
+  .refine(
+    (value) => !value || value.startsWith("/uploads/") || value.startsWith("https://"),
+    "coverImage must be an https:// URL or a local /uploads/ path for non-Vercel uploads"
+  )
+  .optional();
 
 const createPostSchema = z.object({
   title: z.string().min(1).max(200),
   content: z.string().min(1),
   excerpt: z.string().optional(),
-  coverImage: z
-    .string()
-    .refine(
-      (v) => !v || v.startsWith("/uploads/") || v.startsWith("https://"),
-      "coverImage must be a relative /uploads/ path or an https:// URL"
-    )
-    .optional(),
+  coverImage: coverImageSchema,
   published: z.boolean().default(false),
   featured: z.boolean().default(false),
   categoryIds: z.array(z.string()).optional(),
   tagIds: z.array(z.string()).optional(),
 });
 
-// GET /api/posts - List all posts
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    const page = Math.max(1, parseInt(searchParams.get("page") || "1"));
-    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "10")));
+    const page = Math.max(1, Number.parseInt(searchParams.get("page") || "1", 10));
+    const limit = Math.min(100, Math.max(1, Number.parseInt(searchParams.get("limit") || "10", 10)));
     const published = searchParams.get("published") === "true";
     const categorySlug = searchParams.get("category");
     const tagSlug = searchParams.get("tag");
     const search = searchParams.get("search");
-
     const skip = (page - 1) * limit;
 
-    const where: any = {};
-    
+    const where: Prisma.PostWhereInput = {};
+
     if (published) {
       where.published = true;
     }
@@ -109,26 +110,22 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("Error fetching posts:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch posts" },
-      { status: 500 }
-    );
+    console.error("Error fetching posts", {
+      route: "/api/posts",
+      error: error instanceof Error ? { message: error.message, stack: error.stack } : error,
+    });
+    return NextResponse.json({ error: "Failed to fetch posts" }, { status: 500 });
   }
 }
 
-// POST /api/posts - Create new post
 export async function POST(request: NextRequest) {
   try {
     const currentUser = await requireAuth();
-
     const body = await request.json();
     const data = createPostSchema.parse(body);
-
     const slug = slugify(data.title);
     const readingTime = calculateReadingTime(data.content);
 
-    // Check if slug already exists
     const existingPost = await prisma.post.findUnique({
       where: { slug },
     });
@@ -184,19 +181,22 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(post, { status: 201 });
   } catch (error) {
-    console.error("Error creating post:", error);
+    console.error("Error creating post", {
+      route: "/api/posts",
+      error: error instanceof Error ? { message: error.message, stack: error.stack } : error,
+    });
+
     if (error instanceof Error && error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: "Invalid request data", details: error.errors },
         { status: 400 }
       );
     }
-    return NextResponse.json(
-      { error: "Failed to create post" },
-      { status: 500 }
-    );
+
+    return NextResponse.json({ error: "Failed to create post" }, { status: 500 });
   }
 }

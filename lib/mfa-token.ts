@@ -1,12 +1,29 @@
 import { createHmac, randomBytes, timingSafeEqual } from "crypto";
 
-// If MFA_TOKEN_SECRET is not set, generate a random key at startup.
-// Tokens are valid for 10 minutes, so a restart (resetting this key)
-// only invalidates tokens from in-progress logins — acceptable.
-const SECRET =
-  process.env.MFA_TOKEN_SECRET ?? randomBytes(32).toString("hex");
+const TTL_MS = 10 * 60 * 1000;
 
-const TTL_MS = 10 * 60 * 1000; // 10 minutes
+function getMfaTokenSecret(): string {
+  const configuredSecret = process.env.MFA_TOKEN_SECRET?.trim();
+
+  if (configuredSecret) {
+    return configuredSecret;
+  }
+
+  const isVercelHosted =
+    process.env.VERCEL === "1" ||
+    process.env.VERCEL === "true" ||
+    Boolean(process.env.VERCEL_URL);
+
+  if (isVercelHosted) {
+    throw new Error(
+      "MFA_TOKEN_SECRET is required for Vercel-hosted deployments so login and MFA verification share the same signing secret."
+    );
+  }
+
+  return randomBytes(32).toString("hex");
+}
+
+const SECRET = getMfaTokenSecret();
 
 /**
  * Create a short-lived signed token that binds a userId to an MFA challenge.
@@ -25,6 +42,7 @@ export function createMfaToken(userId: string): string {
  */
 export function verifyMfaToken(token: string): string | null {
   let decoded: string;
+
   try {
     decoded = Buffer.from(token, "base64url").toString("utf8");
   } catch {
@@ -32,21 +50,29 @@ export function verifyMfaToken(token: string): string | null {
   }
 
   const parts = decoded.split("|");
-  if (parts.length !== 3) return null;
+  if (parts.length != 3) {
+    return null;
+  }
 
   const [userId, expiryStr, sig] = parts;
+  const expiry = Number.parseInt(expiryStr, 10);
 
-  const expiry = parseInt(expiryStr, 10);
-  if (isNaN(expiry) || Date.now() > expiry) return null;
+  if (Number.isNaN(expiry) || Date.now() > expiry) {
+    return null;
+  }
 
   const payload = `${userId}|${expiryStr}`;
   const expected = createHmac("sha256", SECRET).update(payload).digest("hex");
-
-  // Constant-time comparison to prevent timing attacks
   const sigBuf = Buffer.from(sig, "hex");
   const expectedBuf = Buffer.from(expected, "hex");
-  if (sigBuf.length !== expectedBuf.length) return null;
-  if (!timingSafeEqual(sigBuf, expectedBuf)) return null;
+
+  if (sigBuf.length !== expectedBuf.length) {
+    return null;
+  }
+
+  if (!timingSafeEqual(sigBuf, expectedBuf)) {
+    return null;
+  }
 
   return userId;
 }

@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify the token against the server-held secret
-    const isValid = verifyTOTP(token, dbUser.pendingMfaSecret);
+    const isValid = await verifyTOTP(token, dbUser.pendingMfaSecret);
 
     if (!isValid) {
       return NextResponse.json(

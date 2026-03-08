@@ -1,31 +1,49 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/auth';
-import { generateMFASetup } from '@/lib/mfa';
-import { prisma } from '@/lib/prisma';
+import { NextRequest, NextResponse } from "next/server";
+import { requireAuth } from "@/lib/auth";
+import { generateMFASetup } from "@/lib/mfa";
+import { prisma } from "@/lib/prisma";
+
+function isConfigurationError(error: unknown) {
+  return (
+    error instanceof Error &&
+    (error.message.includes("DATABASE_URL") || error.message.includes("MFA_TOKEN_SECRET"))
+  );
+}
 
 export async function POST(request: NextRequest) {
   try {
     const user = await requireAuth();
-
-    // Generate MFA setup data
     const mfaSetup = await generateMFASetup(user.email);
 
-    // Store the server-generated secret so the enable endpoint
-    // does not have to trust the value submitted by the client.
     await prisma.user.update({
       where: { id: user.id },
       data: { pendingMfaSecret: mfaSetup.secret },
     });
 
     return NextResponse.json({
-      secret: mfaSetup.secret, // returned only so the user can enter it manually in their authenticator
+      secret: mfaSetup.secret,
       qrCode: mfaSetup.qrCode,
     });
   } catch (error) {
-    console.error('Generate MFA error:', error);
-    return NextResponse.json(
-      { error: 'Unauthorized' },
-      { status: 401 }
-    );
+    console.error("Generate MFA error", {
+      route: "/api/auth/mfa/generate",
+      error: error instanceof Error ? { message: error.message, stack: error.stack } : error,
+    });
+
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    if (isConfigurationError(error)) {
+      return NextResponse.json(
+        {
+          error:
+            "Server configuration error. Check DATABASE_URL and MFA_TOKEN_SECRET for this environment.",
+        },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ error: "Failed to generate MFA setup" }, { status: 500 });
   }
 }

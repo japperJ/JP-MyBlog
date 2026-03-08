@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Require valid TOTP before disabling
-    const isValid = verifyTOTP(token, dbUser.mfaSecret);
+    const isValid = await verifyTOTP(token, dbUser.mfaSecret);
     if (!isValid) {
       return NextResponse.json(
         { error: 'Invalid verification code' },

@@ -8,6 +8,8 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  // Single persistence contract for local development, Vercel Development,
+  // and Vercel Preview/hosted environments.
   url      = env("DATABASE_URL")
 }
 

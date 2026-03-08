@@ -1,21 +1,35 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { createSession, verifyPassword } from "@/lib/auth";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { createMfaToken } from "@/lib/mfa-token";
-import { z } from "zod";
 
 const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),
 });
 
-export async function POST(request: NextRequest) {
-  // 5 attempts per 60 seconds per IP
-  const { allowed, retryAfterMs } = rateLimit(
-    `login:${getClientIp(request.headers)}`,
-    { limit: 5, windowMs: 60_000 }
+function isConfigurationError(error: unknown) {
+  return (
+    error instanceof Error &&
+    (error.message.includes("DATABASE_URL") || error.message.includes("MFA_TOKEN_SECRET"))
   );
+}
+
+function logRouteError(error: unknown) {
+  console.error("Login error", {
+    route: "/api/auth/login",
+    error: error instanceof Error ? { message: error.message, stack: error.stack } : error,
+  });
+}
+
+export async function POST(request: NextRequest) {
+  const { allowed, retryAfterMs } = rateLimit(`login:${getClientIp(request.headers)}`, {
+    limit: 5,
+    windowMs: 60_000,
+  });
+
   if (!allowed) {
     return NextResponse.json(
       { error: "Too many login attempts. Please try again later." },
@@ -30,32 +44,21 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { email, password } = loginSchema.parse(body);
 
-    // Find user by email
     const user = await prisma.user.findUnique({
       where: { email },
     });
 
     if (!user) {
-      return NextResponse.json(
-        { error: "Invalid email or password" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Invalid email or password" }, { status: 401 });
     }
 
-    // Verify password
     const isValidPassword = await verifyPassword(password, user.passwordHash);
 
     if (!isValidPassword) {
-      return NextResponse.json(
-        { error: "Invalid email or password" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Invalid email or password" }, { status: 401 });
     }
 
-    // Check if MFA is enabled
     if (user.mfaEnabled) {
-      // Issue a short-lived signed token instead of exposing the raw userId.
-      // The token is verified by /api/auth/mfa/verify.
       const mfaToken = createMfaToken(user.id);
       return NextResponse.json({
         mfaRequired: true,
@@ -63,7 +66,6 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Create session (no MFA required)
     await createSession(user.id);
 
     return NextResponse.json({
@@ -76,8 +78,8 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("Login error:", error);
-    
+    logRouteError(error);
+
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: "Invalid input", details: error.errors },
@@ -85,9 +87,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return NextResponse.json(
-      { error: "Login failed" },
-      { status: 500 }
-    );
+    if (isConfigurationError(error)) {
+      return NextResponse.json(
+        {
+          error:
+            "Server configuration error. Check DATABASE_URL and MFA_TOKEN_SECRET for this environment.",
+        },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ error: "Login failed" }, { status: 500 });
   }
 }

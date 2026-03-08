@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 interface ReadingProgressProps {
-  target: React.RefObject<HTMLElement>;
+  target: React.RefObject<HTMLElement | null>;
 }
 
 export function ReadingProgress({ target }: ReadingProgressProps) {

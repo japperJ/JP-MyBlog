@@ -1,21 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
+import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 import { slugify } from "@/lib/utils";
 import { calculateReadingTime } from "@/lib/markdown";
-import { z } from "zod";
+
+const coverImageSchema = z
+  .string()
+  .refine(
+    (value) => !value || value.startsWith("/uploads/") || value.startsWith("https://"),
+    "coverImage must be an https:// URL or a local /uploads/ path for non-Vercel uploads"
+  )
+  .optional();
 
 const updatePostSchema = z.object({
   title: z.string().min(1).max(200).optional(),
   content: z.string().min(1).optional(),
   excerpt: z.string().optional(),
-  coverImage: z
-    .string()
-    .refine(
-      (v) => !v || v.startsWith("/uploads/") || v.startsWith("https://"),
-      "coverImage must be a relative /uploads/ path or an https:// URL"
-    )
-    .optional(),
+  coverImage: coverImageSchema,
   published: z.boolean().optional(),
   featured: z.boolean().optional(),
   categoryIds: z.array(z.string()).optional(),
@@ -28,11 +31,10 @@ type Params = {
   }>;
 };
 
-// GET /api/posts/[id] - Get single post
 export async function GET(request: NextRequest, { params }: Params) {
   try {
     const { id } = await params;
-    
+
     const post = await prisma.post.findUnique({
       where: { id },
       include: {
@@ -57,23 +59,19 @@ export async function GET(request: NextRequest, { params }: Params) {
     });
 
     if (!post) {
-      return NextResponse.json(
-        { error: "Post not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Post not found" }, { status: 404 });
     }
 
     return NextResponse.json(post);
   } catch (error) {
-    console.error("Error fetching post:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch post" },
-      { status: 500 }
-    );
+    console.error("Error fetching post", {
+      route: "/api/posts/[id]",
+      error: error instanceof Error ? { message: error.message, stack: error.stack } : error,
+    });
+    return NextResponse.json({ error: "Failed to fetch post" }, { status: 500 });
   }
 }
 
-// PATCH /api/posts/[id] - Update post
 export async function PATCH(request: NextRequest, { params }: Params) {
   try {
     await requireAuth();
@@ -87,13 +85,10 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     });
 
     if (!existingPost) {
-      return NextResponse.json(
-        { error: "Post not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Post not found" }, { status: 404 });
     }
 
-    const updates: any = {};
+    const updates: Prisma.PostUpdateInput = {};
 
     if (data.title) {
       updates.title = data.title;
@@ -105,10 +100,18 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       updates.readingTime = calculateReadingTime(data.content);
     }
 
-    if (data.excerpt !== undefined) updates.excerpt = data.excerpt;
-    if (data.coverImage !== undefined) updates.coverImage = data.coverImage;
-    if (data.featured !== undefined) updates.featured = data.featured;
-    
+    if (data.excerpt !== undefined) {
+      updates.excerpt = data.excerpt;
+    }
+
+    if (data.coverImage !== undefined) {
+      updates.coverImage = data.coverImage;
+    }
+
+    if (data.featured !== undefined) {
+      updates.featured = data.featured;
+    }
+
     if (data.published !== undefined) {
       updates.published = data.published;
       if (data.published && !existingPost.publishedAt) {
@@ -116,7 +119,6 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       }
     }
 
-    // Handle categories and tags
     if (data.categoryIds) {
       await prisma.postCategory.deleteMany({
         where: { postId: id },
@@ -165,24 +167,26 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 
     return NextResponse.json(post);
   } catch (error) {
-    console.error("Error updating post:", error);
+    console.error("Error updating post", {
+      route: "/api/posts/[id]",
+      error: error instanceof Error ? { message: error.message, stack: error.stack } : error,
+    });
+
     if (error instanceof Error && error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: "Invalid request data", details: error.errors },
         { status: 400 }
       );
     }
-    return NextResponse.json(
-      { error: "Failed to update post" },
-      { status: 500 }
-    );
+
+    return NextResponse.json({ error: "Failed to update post" }, { status: 500 });
   }
 }
 
-// DELETE /api/posts/[id] - Delete post
 export async function DELETE(request: NextRequest, { params }: Params) {
   try {
     await requireAuth();
@@ -195,13 +199,15 @@ export async function DELETE(request: NextRequest, { params }: Params) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Error deleting post:", error);
+    console.error("Error deleting post", {
+      route: "/api/posts/[id]",
+      error: error instanceof Error ? { message: error.message, stack: error.stack } : error,
+    });
+
     if (error instanceof Error && error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    return NextResponse.json(
-      { error: "Failed to delete post" },
-      { status: 500 }
-    );
+
+    return NextResponse.json({ error: "Failed to delete post" }, { status: 500 });
   }
 }

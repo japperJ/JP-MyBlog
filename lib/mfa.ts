@@ -1,6 +1,5 @@
-// Import from otplib v13
-import { generateSecret, generateURI, verify } from 'otplib';
-import QRCode from 'qrcode';
+import { generateSecret, generateURI, verify } from "otplib";
+import QRCode from "qrcode";
 
 /**
  * Generate a new MFA secret for a user
@@ -16,8 +15,7 @@ export function generateOTPAuthURL(email: string, secret: string): string {
   return generateURI({
     secret,
     label: email,
-    issuer: 'AI Coding Blog',
-    type: 'totp',
+    issuer: "AI Coding Blog",
   });
 }
 
@@ -28,20 +26,20 @@ export async function generateQRCode(otpAuthURL: string): Promise<string> {
   try {
     return await QRCode.toDataURL(otpAuthURL);
   } catch (error) {
-    console.error('Error generating QR code:', error);
-    throw new Error('Failed to generate QR code');
+    console.error("Error generating QR code:", error);
+    throw new Error("Failed to generate QR code");
   }
 }
 
 /**
  * Verify a TOTP token against a secret
  */
-export function verifyTOTP(token: string, secret: string): boolean {
+export async function verifyTOTP(token: string, secret: string): Promise<boolean> {
   try {
-    const result = verify({ token, secret });
-    return result;
+    const result = await verify({ token, secret });
+    return result.valid;
   } catch (error) {
-    console.error('Error verifying TOTP:', error);
+    console.error("Error verifying TOTP:", error);
     return false;
   }
 }
