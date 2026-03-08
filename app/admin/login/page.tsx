@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, FormEvent } from "react";
+import { Suspense, useState, FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,7 +15,26 @@ function safeRedirectPath(from: string | null): string {
   return "/admin";
 }
 
+// Next.js 15 requires useSearchParams() to be inside a Suspense boundary
+// during static generation. Wrap the form in an inner component.
 export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-background px-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="space-y-1">
+            <CardTitle className="text-2xl font-bold text-center">Admin Login</CardTitle>
+            <CardDescription className="text-center">Loading...</CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = safeRedirectPath(searchParams.get("from"));

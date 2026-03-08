@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AdminNavigation } from '@/components/admin-navigation';
 import { Button } from '@/components/ui/button';
@@ -9,7 +9,26 @@ import { Input } from '@/components/ui/input';
 import { Shield, ShieldCheck, ShieldOff, ShieldAlert } from 'lucide-react';
 import Image from 'next/image';
 
+// Next.js 15 requires useSearchParams() inside a Suspense boundary
 export default function MFASettingsPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-background">
+        <AdminNavigation />
+        <main className="container mx-auto px-4 py-8 max-w-4xl">
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold mb-2">Security Settings</h1>
+            <p className="text-muted-foreground">Loading...</p>
+          </div>
+        </main>
+      </div>
+    }>
+      <MFASettingsForm />
+    </Suspense>
+  );
+}
+
+function MFASettingsForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const mfaForcedByAdmin = searchParams.get('mfa-required') === '1';
