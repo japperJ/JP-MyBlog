@@ -1,68 +1,53 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-function createLoginRedirect(origin: string, pathname: string) {
-  const loginUrl = new URL("/admin/login", origin);
-  loginUrl.searchParams.set("from", pathname);
-  return NextResponse.redirect(loginUrl);
-}
+/**
+ * Edge Middleware — lightweight cookie-presence gate.
+ *
+ * Why no fetch to /api/auth/session here?
+ * ─────────────────────────────────────────
+ * Middleware runs in the Edge Runtime. Fetching our own API route
+ * ("/api/auth/session") from inside middleware creates a self-referencing
+ * request that passes back through the Vercel routing layer. On the Hobby
+ * tier (limited concurrency, serverless cold-starts) this reliably
+ * deadlocks — the Edge function blocks waiting for the serverless function
+ * which is queued behind the same Edge invocation.
+ *
+ * Instead, middleware only checks that the auth cookie *exists*.
+ * Full session + role + MFA validation happens in the admin layout
+ * (app/admin/layout.tsx), which runs in the Node.js runtime and can
+ * call Prisma directly — no extra HTTP round-trip.
+ */
 
-function createAdminRedirect(origin: string) {
-  const adminUrl = new URL("/admin", origin);
-  adminUrl.searchParams.set("denied", "users");
-  return NextResponse.redirect(adminUrl);
-}
+export function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
 
-export async function middleware(request: NextRequest) {
-  const { pathname, origin } = request.nextUrl;
-
-  if (pathname === "/admin/login" || pathname.startsWith("/api/auth/")) {
+  // API auth routes never need a session gate.
+  if (pathname.startsWith("/api/auth/")) {
     return NextResponse.next();
   }
 
   if (pathname.startsWith("/admin")) {
+    // Always forward the pathname so the admin layout can distinguish
+    // the login page from protected pages.
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set("x-pathname", pathname);
+
+    // The login page renders without a session.
+    if (pathname === "/admin/login") {
+      return NextResponse.next({ request: { headers: requestHeaders } });
+    }
+
     const sessionCookie = request.cookies.get("auth_session");
 
     if (!sessionCookie) {
-      return createLoginRedirect(origin, pathname);
+      const loginUrl = new URL("/admin/login", request.url);
+      loginUrl.searchParams.set("from", pathname);
+      return NextResponse.redirect(loginUrl);
     }
 
-    try {
-      const sessionCheck = await fetch(new URL("/api/auth/session", origin), {
-        headers: {
-          Cookie: `auth_session=${sessionCookie.value}`,
-        },
-        cache: "no-store",
-      });
-
-      if (!sessionCheck.ok) {
-        return createLoginRedirect(origin, pathname);
-      }
-
-      const sessionData = await sessionCheck.json();
-      if (pathname.startsWith("/admin/users") && sessionData.user?.role !== "admin") {
-        return createAdminRedirect(origin);
-      }
-
-      if (
-        sessionData.user?.mfaRequired &&
-        !sessionData.user?.mfaEnabled &&
-        pathname !== "/admin/settings"
-      ) {
-        const settingsUrl = new URL("/admin/settings", origin);
-        settingsUrl.searchParams.set("mfa-required", "1");
-        return NextResponse.redirect(settingsUrl);
-      }
-    } catch (error) {
-      console.error("Session verification error", {
-        route: "middleware",
-        pathname,
-        origin,
-        error: error instanceof Error ? { message: error.message, stack: error.stack } : error,
-      });
-
-      return createLoginRedirect(origin, pathname);
-    }
+    // Cookie exists — let the admin layout do full validation.
+    return NextResponse.next({ request: { headers: requestHeaders } });
   }
 
   return NextResponse.next();
@@ -70,6 +55,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
