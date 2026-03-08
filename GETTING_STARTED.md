@@ -175,6 +175,14 @@ Important:
 
 This is the initial rollout smoke gate. It targets current admin/API behavior, not stale homepage/blog expectations.
 
+Current hosted smoke coverage:
+
+- health endpoint
+- admin login and protected admin screens
+- post/category/tag CRUD through the current API, including tag update
+- OG image generation
+- hosted upload limitation messaging and hosted `/api/upload` failure behavior
+
 ## 12. Know what is not a readiness gate
 
 `tests/blog.spec.ts` is explicitly de-scoped from Phase 3 deployment readiness because it does not yet represent the current homepage/blog UI.

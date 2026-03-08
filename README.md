@@ -138,7 +138,7 @@ This smoke path covers the current deployment gate:
 
 - health endpoint
 - admin login and protected admin screens
-- post/category/tag CRUD through the current API
+- post/category/tag CRUD through the current API, including tag update
 - OG image generation
 - hosted upload limitation messaging and hosted `/api/upload` failure behavior
 

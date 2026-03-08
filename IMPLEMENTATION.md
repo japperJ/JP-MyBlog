@@ -87,7 +87,7 @@ This is the current truthful smoke gate because it exercises:
 
 - `/api/health`
 - admin login and protected pages
-- post/category/tag CRUD behavior
+- post/category/tag CRUD behavior, including tag update
 - OG image generation
 - hosted upload limitation messaging and hosted upload failure behavior
 

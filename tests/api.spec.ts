@@ -215,7 +215,7 @@ test.describe("Categories and tags APIs", () => {
     expect(deleteResponse.ok()).toBeTruthy();
   });
 
-  test("creates and deletes a tag with auth", async ({ request }) => {
+  test("creates, updates, and deletes a tag with auth", async ({ request }) => {
     await loginAsAdmin(request);
 
     const createResponse = await request.post("/api/tags", {
@@ -227,6 +227,16 @@ test.describe("Categories and tags APIs", () => {
     expect(createResponse.status()).toBe(201);
     const tag = await createResponse.json();
     expect(tag.name).toContain("Tag ");
+
+    const updateResponse = await request.patch(`/api/tags/${tag.id}`, {
+      data: {
+        name: `${tag.name} Updated`,
+      },
+    });
+
+    expect(updateResponse.ok()).toBeTruthy();
+    const updatedTag = await updateResponse.json();
+    expect(updatedTag.name).toContain("Updated");
 
     const deleteResponse = await request.delete(`/api/tags/${tag.id}`);
     expect(deleteResponse.ok()).toBeTruthy();
