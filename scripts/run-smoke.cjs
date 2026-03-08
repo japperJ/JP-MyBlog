@@ -1,9 +1,9 @@
 const { spawnSync } = require("node:child_process");
+const path = require("node:path");
 
 const smokeTarget = process.argv[2];
 const extraArgs = process.argv.slice(3);
 const playwrightArgs = [
-  "playwright",
   "test",
   "tests/admin.spec.ts",
   "tests/api.spec.ts",
@@ -55,8 +55,18 @@ const env = {
   ...process.env,
   PLAYWRIGHT_SMOKE_TARGET: smokeTarget,
 };
-const npxCommand = process.platform === "win32" ? "npx.cmd" : "npx";
-const result = spawnSync(npxCommand, playwrightArgs, {
+
+let playwrightCLIPath;
+
+try {
+  const playwrightPackagePath = require.resolve("playwright/package.json");
+  playwrightCLIPath = path.join(path.dirname(playwrightPackagePath), "cli.js");
+} catch (error) {
+  console.error("[smoke] Failed to resolve the local Playwright CLI.", error);
+  process.exit(1);
+}
+
+const result = spawnSync(process.execPath, [playwrightCLIPath, ...playwrightArgs], {
   stdio: "inherit",
   env,
 });
