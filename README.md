@@ -107,22 +107,25 @@ Recommended first-rollout setup:
 
 Run these commands from `upstream/JP-MyBlog/`.
 
-### Required preflight
+### Repeatable preflight command
 
 ```bash
-npm install
-npm run typecheck
-npm run db:validate
-npm run db:generate
-npm run db:push
-npm run db:seed
-npm run build
+npm run readiness:preflight
 ```
+
+`readiness:preflight` owns this repeatable subset:
+
+- `npm run typecheck`
+- `npm run db:validate`
+- `npm run db:generate`
+- `npm run build`
 
 Interpretation:
 
 - `npm run db:validate` is not meaningful without `DATABASE_URL`.
 - `npm run build` is not a real pass unless the Prisma-backed pages can reach the external database.
+- This repeatable preflight does **not** replace the one-time first-rollout database bootstrap (`npm run db:push` and optional `npm run db:seed`).
+- This repeatable preflight does **not** replace hosted smoke.
 - If the database is missing or unreachable, readiness is **blocked**.
 
 ### Required hosted smoke
@@ -139,13 +142,23 @@ This smoke path covers the current deployment gate:
 - OG image generation
 - hosted upload limitation messaging and hosted `/api/upload` failure behavior
 
+`npm run test:smoke:hosted` hard-requires `PLAYWRIGHT_BASE_URL` and rejects localhost-style targets. Use `npm run test:smoke:local` when you intentionally want the same smoke flow against a local dev server.
+
+### Full first-rollout readiness meaning
+
+A truthful first-rollout readiness claim means all three of these are true:
+
+1. the one-time database bootstrap completed against the shared external database
+2. `npm run readiness:preflight` passed against that same reachable external database
+3. `npm run test:smoke:hosted` passed against a real hosted preview URL
+
 `tests/blog.spec.ts` is intentionally **not** part of the Phase 3 readiness gate. That file is explicitly de-scoped until it is realigned to the current homepage/blog UI.
 
 ## Testing model
 
 - `npm test` remains a broader developer command.
-- `npm run test:smoke:hosted` is the truthful initial hosted readiness smoke gate.
-- `npm run test:smoke:local` runs the same admin/API smoke flow against the local default server.
+- `npm run test:smoke:local` is the only repo-owned smoke path that may start or reuse a local server.
+- `npm run test:smoke:hosted` is the truthful initial hosted readiness smoke gate and never falls back to local.
 - Do not treat a generic `npm test` result as proof of first preview readiness when the required database or preview URL prerequisites are missing.
 
 ## Hosted upload limitation

@@ -16,8 +16,8 @@
     "db:studio": "prisma studio",
     "readiness:preflight": "npm run typecheck && npm run db:validate && npm run db:generate && npm run build",
     "test": "playwright test",
-    "test:smoke:local": "playwright test tests/admin.spec.ts tests/api.spec.ts --project=chromium",
-    "test:smoke:hosted": "playwright test tests/admin.spec.ts tests/api.spec.ts --project=chromium",
+    "test:smoke:local": "node ./scripts/run-smoke.cjs local",
+    "test:smoke:hosted": "node ./scripts/run-smoke.cjs hosted",
     "test:ui": "playwright test --ui",
     "test:debug": "playwright test --debug",
     "test:report": "playwright show-report"

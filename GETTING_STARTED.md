@@ -57,19 +57,26 @@ Seeded admin account:
 - Email: `admin@aicodingblog.com`
 - Password: `admin123`
 
-## 5. Run the local readiness preflight
+## 5. Run the repeatable readiness preflight
 
-Before claiming the app is locally ready, run:
+Before claiming the app is ready beyond bootstrap, run:
 
 ```bash
-npm run typecheck
-npm run db:validate
-npm run build
+npm run readiness:preflight
 ```
+
+What `readiness:preflight` covers:
+
+- `npm run typecheck`
+- `npm run db:validate`
+- `npm run db:generate`
+- `npm run build`
 
 Important:
 
 - `npm run db:validate` and `npm run build` both depend on a real reachable external PostgreSQL database.
+- This repeatable preflight does **not** replace the one-time bootstrap commands in Step 4.
+- This repeatable preflight does **not** replace hosted smoke against a real preview URL.
 - If the database is down, blocked by network rules, or misconfigured, the correct result is **blocked readiness**.
 
 ## 6. Start local development
@@ -159,6 +166,13 @@ After the first preview deploy exists and the seeded admin account is available,
 PLAYWRIGHT_BASE_URL=https://<preview-url> PLAYWRIGHT_ADMIN_EMAIL=admin@aicodingblog.com PLAYWRIGHT_ADMIN_PASSWORD=admin123 npm run test:smoke:hosted
 ```
 
+Important:
+
+- `npm run test:smoke:hosted` hard-requires `PLAYWRIGHT_BASE_URL`.
+- `PLAYWRIGHT_BASE_URL` must point to a real hosted deployment URL.
+- Localhost-style URLs are rejected on purpose so hosted smoke cannot silently become local smoke.
+- Use `npm run test:smoke:local` when you intentionally want the same smoke path against a local server.
+
 This is the initial rollout smoke gate. It targets current admin/API behavior, not stale homepage/blog expectations.
 
 ## 12. Know what is not a readiness gate
@@ -169,7 +183,7 @@ That means:
 
 - `npm test` is still useful for developer workflows.
 - `npm test` is **not** the authoritative deploy gate for the first preview rollout.
-- The authoritative gate is the preflight plus hosted smoke sequence described above.
+- The authoritative gate is: Step 4 bootstrap, then Step 5 `npm run readiness:preflight`, then Step 11 hosted smoke.
 
 ## 13. Troubleshooting
 

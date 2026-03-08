@@ -35,22 +35,28 @@ npm run db:seed
 
 This sequence is required before a truthful first preview rollout because the app builds and renders Prisma-backed content during build/runtime paths.
 
-### 3. Preflight sequence before claiming readiness
+### 3. Repeatable preflight command before claiming readiness
 
 Run from `upstream/JP-MyBlog/`:
 
 ```bash
-npm run typecheck
-npm run db:validate
-npm run db:generate
-npm run build
+npm run readiness:preflight
 ```
+
+`readiness:preflight` owns this repeatable subset:
+
+- `npm run typecheck`
+- `npm run db:validate`
+- `npm run db:generate`
+- `npm run build`
 
 Interpret the results strictly:
 
 - `typecheck` proves TypeScript compatibility only.
 - `db:validate` proves the Prisma schema can load against the configured `DATABASE_URL`.
 - `build` is only meaningful when the external database is reachable because homepage/blog pages query Prisma during build.
+- This repeatable preflight does **not** replace the one-time `db:push` / `db:seed` bootstrap work.
+- This repeatable preflight does **not** replace hosted smoke.
 - If the database is unavailable, the result is **blocked readiness**.
 
 ### 4. First preview deployment sequence
@@ -69,6 +75,13 @@ After the preview URL exists, run:
 ```bash
 PLAYWRIGHT_BASE_URL=https://<preview-url> PLAYWRIGHT_ADMIN_EMAIL=admin@aicodingblog.com PLAYWRIGHT_ADMIN_PASSWORD=admin123 npm run test:smoke:hosted
 ```
+
+This command is intentionally strict:
+
+- it hard-requires `PLAYWRIGHT_BASE_URL`
+- it rejects localhost-style URLs
+- it never starts or reuses a local server
+- `npm run test:smoke:local` is the only local-server smoke path
 
 This is the current truthful smoke gate because it exercises:
 
@@ -111,16 +124,22 @@ This is the current truthful smoke gate because it exercises:
 
 ## Readiness gate definition
 
-### Gating checks
+### One-time first-rollout bootstrap
 
 - `npm install`
-- `npm run typecheck`
-- `npm run db:validate`
 - `npm run db:generate`
 - `npm run db:push`
 - `npm run db:seed`
-- `npm run build`
-- `npm run test:smoke:hosted` against a real preview URL
+
+### Repeatable preflight command
+
+- `npm run readiness:preflight`
+- Owns `typecheck`, `db:validate`, `db:generate`, and `build`
+
+### Hosted smoke gate
+
+- `PLAYWRIGHT_BASE_URL=https://<preview-url> npm run test:smoke:hosted`
+- Requires a real hosted target and rejects localhost-style URLs
 
 ### Non-gating / explicitly de-scoped
 
@@ -140,12 +159,13 @@ These are still intentionally out of scope for the first rollout:
 
 ## Truthfulness requirement
 
-The project should only be described as ready for first preview deployment when both of these are true:
+The project should only be described as ready for first preview deployment when all three of these are true:
 
-1. the preflight sequence succeeded against a real reachable external PostgreSQL database
-2. the hosted smoke sequence succeeded against a real preview URL
+1. the one-time bootstrap sequence succeeded against a real reachable external PostgreSQL database
+2. `npm run readiness:preflight` succeeded against that same reachable external PostgreSQL database
+3. `npm run test:smoke:hosted` succeeded against a real preview URL
 
-If either prerequisite is missing, the correct verdict is blocked by external prerequisites rather than ready.
+If any prerequisite is missing, the correct verdict is blocked by external prerequisites rather than ready.
 
 ## Planning-environment note
 

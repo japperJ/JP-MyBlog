@@ -2,8 +2,9 @@ import { defineConfig, devices } from "@playwright/test";
 
 const localPort = process.env.PORT || "3000";
 const localBaseURL = `http://127.0.0.1:${localPort}`;
-const baseURL = process.env.PLAYWRIGHT_BASE_URL || localBaseURL;
-const useExternalServer = Boolean(process.env.PLAYWRIGHT_BASE_URL);
+const smokeTarget = process.env.PLAYWRIGHT_SMOKE_TARGET;
+const isHostedSmoke = smokeTarget === "hosted";
+const baseURL = isHostedSmoke ? process.env.PLAYWRIGHT_BASE_URL : localBaseURL;
 
 export default defineConfig({
   testDir: "./tests",
@@ -30,7 +31,7 @@ export default defineConfig({
       use: { ...devices["Desktop Safari"] },
     },
   ],
-  webServer: useExternalServer
+  webServer: isHostedSmoke
     ? undefined
     : {
         command: `npm run dev -- --hostname 127.0.0.1 --port ${localPort}`,
