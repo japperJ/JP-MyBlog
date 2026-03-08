@@ -3,6 +3,12 @@ import { Navigation } from "@/components/navigation";
 import { PostCard } from "@/components/blog/post-card";
 import { notFound } from "next/navigation";
 
+/** Allow on-demand rendering for categories created after the build. */
+export const dynamicParams = true;
+
+/** Re-validate so newly published posts in each category appear. */
+export const revalidate = 60;
+
 type Props = {
   params: Promise<{
     slug: string;

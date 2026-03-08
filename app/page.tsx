@@ -5,6 +5,9 @@ import { PostCard } from "@/components/blog/post-card";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
 
+/** Re-validate the homepage so featured / latest posts stay current. */
+export const revalidate = 60;
+
 export default async function HomePage() {
   const [featuredPosts, latestPosts] = await Promise.all([
     prisma.post.findMany({

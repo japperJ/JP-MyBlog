@@ -3,6 +3,9 @@ import { Navigation } from "@/components/navigation";
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
+/** Re-validate so new categories and post counts stay current. */
+export const revalidate = 60;
+
 export default async function CategoriesPage() {
   const categories = await prisma.category.findMany({
     include: {

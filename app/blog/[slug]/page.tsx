@@ -4,6 +4,19 @@ import PostPageClient from "@/components/blog/post-page-client";
 import { prisma } from "@/lib/prisma";
 import { getAppUrl, getConfiguredAppOrigin } from "@/lib/runtime-config";
 
+/**
+ * Allow on-demand rendering for slugs not generated at build time.
+ * Without this (or with it set to false), any post created after the
+ * Vercel build would 404 because no static page exists for it.
+ */
+export const dynamicParams = true;
+
+/**
+ * Re-validate cached pages every 60 seconds so that edits, new posts,
+ * and view-count changes eventually surface without a full redeploy.
+ */
+export const revalidate = 60;
+
 type Props = {
   params: Promise<{
     slug: string;

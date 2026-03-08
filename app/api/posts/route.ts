@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 import { slugify } from "@/lib/utils";
 import { calculateReadingTime } from "@/lib/markdown";
+import { revalidatePath } from "next/cache";
 
 const coverImageSchema = z
   .string()
@@ -178,6 +179,10 @@ export async function POST(request: NextRequest) {
         },
       },
     });
+
+    // Bust cached pages so the new post appears immediately.
+    revalidatePath("/");
+    revalidatePath("/blog");
 
     return NextResponse.json(post, { status: 201 });
   } catch (error) {

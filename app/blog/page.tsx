@@ -2,6 +2,9 @@ import { prisma } from "@/lib/prisma";
 import { Navigation } from "@/components/navigation";
 import { PostCard } from "@/components/blog/post-card";
 
+/** Re-validate the blog listing so newly published posts appear. */
+export const revalidate = 60;
+
 export default async function BlogPage() {
   const posts = await prisma.post.findMany({
     where: {

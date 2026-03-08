@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 import { slugify } from "@/lib/utils";
 import { calculateReadingTime } from "@/lib/markdown";
+import { revalidatePath } from "next/cache";
 
 const coverImageSchema = z
   .string()
@@ -165,6 +166,12 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       },
     });
 
+    // Bust cached pages so edits (publish, unpublish, title change, etc.)
+    // are reflected on the public site immediately.
+    revalidatePath("/");
+    revalidatePath("/blog");
+    revalidatePath(`/blog/${post.slug}`);
+
     return NextResponse.json(post);
   } catch (error) {
     console.error("Error updating post", {
@@ -193,9 +200,22 @@ export async function DELETE(request: NextRequest, { params }: Params) {
 
     const { id } = await params;
 
+    // Fetch slug before deleting so we can invalidate its cached page.
+    const post = await prisma.post.findUnique({
+      where: { id },
+      select: { slug: true },
+    });
+
     await prisma.post.delete({
       where: { id },
     });
+
+    // Bust cached pages so the deleted post disappears immediately.
+    revalidatePath("/");
+    revalidatePath("/blog");
+    if (post?.slug) {
+      revalidatePath(`/blog/${post.slug}`);
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {
