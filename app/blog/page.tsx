@@ -1,9 +1,25 @@
+import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { Navigation } from "@/components/navigation";
 import { PostCard } from "@/components/blog/post-card";
 
 /** Re-validate the blog listing so newly published posts appear. */
 export const revalidate = 60;
+
+export const metadata: Metadata = {
+  title: "Blog",
+  description: "Discover articles about AI, coding, machine learning, and software development",
+  openGraph: {
+    title: "Blog | AI Coding Blog",
+    description: "Discover articles about AI, coding, machine learning, and software development",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Blog | AI Coding Blog",
+    description: "Discover articles about AI, coding, machine learning, and software development",
+  },
+};
 
 export default async function BlogPage() {
   const posts = await prisma.post.findMany({

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { formatDate } from "@/lib/utils";
 import { Clock, Eye } from "lucide-react";
@@ -32,11 +33,13 @@ export function PostCard({ post }: PostCardProps) {
     <Link href={`/blog/${post.slug}`}>
       <Card className="hover:shadow-lg transition-shadow h-full flex flex-col">
         {post.coverImage && (
-          <div className="w-full h-48 overflow-hidden rounded-t-lg">
-            <img
+          <div className="relative w-full h-48 overflow-hidden rounded-t-lg">
+            <Image
               src={post.coverImage}
               alt={post.title}
-              className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+              fill
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+              className="object-cover hover:scale-105 transition-transform duration-300"
             />
           </div>
         )}

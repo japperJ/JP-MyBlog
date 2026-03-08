@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import PostPageClient from "@/components/blog/post-page-client";
+import { Breadcrumbs, type BreadcrumbItem } from "@/components/blog/breadcrumbs";
+import { RelatedPosts } from "@/components/blog/related-posts";
 import { prisma } from "@/lib/prisma";
 import { getAppUrl, getConfiguredAppOrigin } from "@/lib/runtime-config";
 
@@ -139,5 +141,81 @@ export default async function PostPage({ params }: Props) {
     },
   });
 
-  return <PostPageClient post={post} />;
+  // Query related posts from the same categories, excluding the current post
+  const categoryIds = post.categories.map((pc) => pc.category.id);
+  const relatedPosts = categoryIds.length > 0
+    ? await prisma.post.findMany({
+        where: {
+          published: true,
+          id: { not: post.id },
+          categories: { some: { categoryId: { in: categoryIds } } },
+        },
+        select: {
+          title: true,
+          slug: true,
+          excerpt: true,
+          coverImage: true,
+          publishedAt: true,
+        },
+        orderBy: { publishedAt: "desc" },
+        take: 3,
+      })
+    : [];
+
+  const appOrigin = getConfiguredAppOrigin();
+  const postUrl = getAppUrl(`/blog/${slug}`);
+  const primaryCategory = post.categories[0]?.category;
+
+  const imageUrl = post.coverImage
+    ? new URL(post.coverImage, appOrigin).toString()
+    : undefined;
+
+  const blogPostingJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    headline: post.title,
+    description: post.excerpt || undefined,
+    datePublished: post.publishedAt?.toISOString(),
+    dateModified: post.updatedAt.toISOString(),
+    url: postUrl,
+    mainEntityOfPage: { "@type": "WebPage", "@id": postUrl },
+    ...(imageUrl ? { image: imageUrl } : {}),
+    author: {
+      "@type": "Person",
+      name: post.author.name || "Anonymous",
+      ...(post.author.avatar ? { image: post.author.avatar } : {}),
+    },
+    publisher: {
+      "@type": "Organization",
+      name: "AI Coding Blog",
+      url: appOrigin,
+    },
+  };
+
+  // Build breadcrumb trail: Home > Blog > Category (if any) > Post title
+  const breadcrumbItems: BreadcrumbItem[] = [
+    { label: "Home", href: "/" },
+    { label: "Blog", href: "/blog" },
+  ];
+  if (primaryCategory) {
+    breadcrumbItems.push({
+      label: primaryCategory.name,
+      href: `/blog/category/${primaryCategory.slug}`,
+    });
+  }
+  breadcrumbItems.push({ label: post.title });
+
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(blogPostingJsonLd) }}
+      />
+      <PostPageClient
+        post={post}
+        breadcrumbs={<Breadcrumbs items={breadcrumbItems} />}
+        relatedPosts={<RelatedPosts posts={relatedPosts} />}
+      />
+    </>
+  );
 }

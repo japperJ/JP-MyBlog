@@ -1,12 +1,15 @@
 "use client";
 
 import { useRef } from "react";
+import Image from "next/image";
 import { Navigation } from "@/components/navigation";
 import { PostContent } from "@/components/blog/post-content";
 import { ReadingProgress } from "@/components/blog/reading-progress";
 import { formatDate } from "@/lib/utils";
 import { Clock, Eye, Calendar } from "lucide-react";
 import { notFound } from "next/navigation";
+
+import type { ReactNode } from "react";
 
 interface Post {
   id: string;
@@ -36,7 +39,15 @@ interface Post {
   }>;
 }
 
-export default function PostPage({ post }: { post: Post }) {
+interface PostPageProps {
+  post: Post;
+  /** Server-rendered breadcrumbs with JSON-LD */
+  breadcrumbs?: ReactNode;
+  /** Server-rendered related posts section */
+  relatedPosts?: ReactNode;
+}
+
+export default function PostPage({ post, breadcrumbs, relatedPosts }: PostPageProps) {
   const articleRef = useRef<HTMLElement>(null);
 
   if (!post) {
@@ -50,16 +61,22 @@ export default function PostPage({ post }: { post: Post }) {
       <article ref={articleRef} className="min-h-screen">
         {/* Cover Image */}
         {post.coverImage && (
-          <div className="w-full h-96 overflow-hidden">
-            <img
+          <div className="relative w-full h-96 overflow-hidden">
+            <Image
               src={post.coverImage}
               alt={post.title}
-              className="w-full h-full object-cover"
+              fill
+              priority
+              sizes="100vw"
+              className="object-cover"
             />
           </div>
         )}
 
         <div className="container mx-auto px-4 py-12 max-w-4xl">
+          {/* Breadcrumbs */}
+          {breadcrumbs}
+
           {/* Categories */}
           <div className="flex flex-wrap gap-2 mb-4">
             {post.categories.map(({ category }) => (
@@ -84,10 +101,12 @@ export default function PostPage({ post }: { post: Post }) {
           <div className="flex flex-wrap items-center gap-6 mb-8 pb-8 border-b">
             <div className="flex items-center gap-2">
               {post.author.avatar && (
-                <img
+                <Image
                   src={post.author.avatar}
                   alt={post.author.name || "Author"}
-                  className="w-10 h-10 rounded-full"
+                  width={40}
+                  height={40}
+                  className="rounded-full"
                 />
               )}
               <span className="font-medium">{post.author.name}</span>
@@ -135,10 +154,12 @@ export default function PostPage({ post }: { post: Post }) {
             <div className="mt-12 p-6 bg-muted rounded-lg">
               <div className="flex items-start gap-4">
                 {post.author.avatar && (
-                  <img
+                  <Image
                     src={post.author.avatar}
                     alt={post.author.name || "Author"}
-                    className="w-16 h-16 rounded-full"
+                    width={64}
+                    height={64}
+                    className="rounded-full"
                   />
                 )}
                 <div>
@@ -148,6 +169,8 @@ export default function PostPage({ post }: { post: Post }) {
               </div>
             </div>
           )}
+          {/* Related Posts */}
+          {relatedPosts}
         </div>
       </article>
     </>

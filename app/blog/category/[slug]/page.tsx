@@ -1,7 +1,10 @@
+import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { Navigation } from "@/components/navigation";
 import { PostCard } from "@/components/blog/post-card";
+import { Breadcrumbs } from "@/components/blog/breadcrumbs";
 import { notFound } from "next/navigation";
+import { getAppUrl } from "@/lib/runtime-config";
 
 /** Allow on-demand rendering for categories created after the build. */
 export const dynamicParams = true;
@@ -14,6 +17,41 @@ type Props = {
     slug: string;
   }>;
 };
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { slug } = await params;
+
+  const category = await prisma.category.findUnique({
+    where: { slug },
+    select: { name: true, description: true },
+  });
+
+  if (!category) {
+    return { title: "Category Not Found" };
+  }
+
+  const title = `${category.name} Articles`;
+  const description =
+    category.description || `Browse all articles in the ${category.name} category`;
+  const canonicalUrl = getAppUrl(`/blog/category/${slug}`);
+
+  return {
+    title,
+    description,
+    alternates: { canonical: canonicalUrl },
+    openGraph: {
+      url: canonicalUrl,
+      title: `${title} | AI Coding Blog`,
+      description,
+      type: "website",
+    },
+    twitter: {
+      card: "summary",
+      title: `${title} | AI Coding Blog`,
+      description,
+    },
+  };
+}
 
 export async function generateStaticParams() {
   const categories = await prisma.category.findMany({
@@ -69,6 +107,14 @@ export default async function CategoryPage({ params }: Props) {
       <Navigation />
       <main className="min-h-screen">
         <div className="container mx-auto px-4 py-12">
+          <Breadcrumbs
+            items={[
+              { label: "Home", href: "/" },
+              { label: "Blog", href: "/blog" },
+              { label: category.name },
+            ]}
+          />
+
           <div className="mb-12">
             <h1 className="text-4xl font-bold mb-4">{category.name}</h1>
             {category.description && (

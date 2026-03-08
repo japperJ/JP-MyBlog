@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { Navigation } from "@/components/navigation";
 import Link from "next/link";
@@ -5,6 +6,21 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 
 /** Re-validate so new categories and post counts stay current. */
 export const revalidate = 60;
+
+export const metadata: Metadata = {
+  title: "Categories",
+  description: "Browse blog posts by category — AI, coding, machine learning, and more",
+  openGraph: {
+    title: "Categories | AI Coding Blog",
+    description: "Browse blog posts by category — AI, coding, machine learning, and more",
+    type: "website",
+  },
+  twitter: {
+    card: "summary",
+    title: "Categories | AI Coding Blog",
+    description: "Browse blog posts by category — AI, coding, machine learning, and more",
+  },
+};
 
 export default async function CategoriesPage() {
   const categories = await prisma.category.findMany({
