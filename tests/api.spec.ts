@@ -1,15 +1,21 @@
 import { Buffer } from "node:buffer";
-import { expect, test, type APIRequestContext } from "@playwright/test";
+import { expect, request as playwrightRequest, test, type APIRequestContext } from "@playwright/test";
 
 const adminEmail = process.env.PLAYWRIGHT_ADMIN_EMAIL || "admin@aicodingblog.com";
 const adminPassword = process.env.PLAYWRIGHT_ADMIN_PASSWORD || "admin123";
+const editorPassword = "editor123";
 const hostedSmokeEnabled = Boolean(process.env.PLAYWRIGHT_BASE_URL);
+const baseURL = process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:3000";
 
 async function loginAsAdmin(request: APIRequestContext) {
+  await loginAsUser(request, adminEmail, adminPassword);
+}
+
+async function loginAsUser(request: APIRequestContext, email: string, password: string) {
   const response = await request.post("/api/auth/login", {
     data: {
-      email: adminEmail,
-      password: adminPassword,
+      email,
+      password,
     },
   });
 
@@ -17,6 +23,29 @@ async function loginAsAdmin(request: APIRequestContext) {
 
   const body = await response.json();
   expect(body.mfaRequired).not.toBeTruthy();
+}
+
+async function createEditorUser(request: APIRequestContext) {
+  await loginAsAdmin(request);
+
+  const email = `editor-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`;
+  const response = await request.post("/api/admin/users", {
+    data: {
+      email,
+      name: "Editor User",
+      password: editorPassword,
+      role: "editor",
+    },
+  });
+
+  expect(response.status()).toBe(201);
+  const body = await response.json();
+
+  return {
+    id: body.user.id as string,
+    email,
+    password: editorPassword,
+  };
 }
 
 function getTinyPngBuffer() {
@@ -54,6 +83,35 @@ test.describe("Health and auth APIs", () => {
     const body = await response.json();
     expect(body.authenticated).toBe(true);
     expect(body.user.email).toBe(adminEmail);
+  });
+});
+
+test.describe("Admin users API", () => {
+  test("stays admin-only for direct requests", async ({ request }) => {
+    const unauthenticatedResponse = await request.get("/api/admin/users");
+    expect(unauthenticatedResponse.status()).toBe(401);
+
+    await loginAsAdmin(request);
+
+    const adminResponse = await request.get("/api/admin/users");
+    expect(adminResponse.ok()).toBeTruthy();
+
+    const adminBody = await adminResponse.json();
+    expect(Array.isArray(adminBody.users)).toBe(true);
+
+    const editorUser = await createEditorUser(request);
+    const editorRequest = await playwrightRequest.newContext({ baseURL });
+
+    try {
+      await loginAsUser(editorRequest, editorUser.email, editorUser.password);
+
+      const editorResponse = await editorRequest.get("/api/admin/users");
+      expect(editorResponse.status()).toBe(401);
+    } finally {
+      await editorRequest.dispose();
+      const cleanupResponse = await request.delete(`/api/admin/users/${editorUser.id}`);
+      expect(cleanupResponse.ok()).toBeTruthy();
+    }
   });
 });
 

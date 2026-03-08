@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { AdminNavigation } from '@/components/admin-navigation';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -18,10 +20,15 @@ interface User {
   createdAt: string;
 }
 
+type AccessState = 'loading' | 'allowed' | 'denied';
+
 export default function UsersManagementPage() {
+  const router = useRouter();
   const [users, setUsers] = useState<User[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string>('');
-  const [loading, setLoading] = useState(true);
+  const [accessState, setAccessState] = useState<AccessState>('loading');
+  const [loadingUsers, setLoadingUsers] = useState(true);
+  const [submittingUser, setSubmittingUser] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
@@ -33,26 +40,73 @@ export default function UsersManagementPage() {
   const [success, setSuccess] = useState('');
 
   useEffect(() => {
-    Promise.all([loadUsers(), loadCurrentUser()]);
+    initializePage();
   }, []);
 
-  async function loadCurrentUser() {
+  async function initializePage() {
+    setLoadingUsers(true);
+
     try {
-      const res = await fetch('/api/auth/session');
-      const data = await res.json();
-      if (data.user?.id) setCurrentUserId(data.user.id);
-    } catch {}
+      const response = await fetch('/api/auth/session', {
+        cache: 'no-store',
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        router.replace('/admin/login?from=%2Fadmin%2Fusers');
+        setAccessState('denied');
+        setLoadingUsers(false);
+        return;
+      }
+
+      if (data.user?.role !== 'admin' || !data.user?.id) {
+        setError('User management is available to administrators only.');
+        setAccessState('denied');
+        setLoadingUsers(false);
+        router.replace('/admin?denied=users');
+        return;
+      }
+
+      setCurrentUserId(data.user.id);
+      setAccessState('allowed');
+      await loadUsers();
+    } catch (error) {
+      console.error('Failed to verify user-management access', {
+        page: '/admin/users',
+        error: error instanceof Error ? { message: error.message, stack: error.stack } : error,
+      });
+      setError('Failed to verify your admin session. Please try again.');
+      setAccessState('denied');
+      setLoadingUsers(false);
+    }
   }
 
   async function loadUsers() {
     try {
+      setLoadingUsers(true);
       const response = await fetch('/api/admin/users');
       const data = await response.json();
-      if (response.ok) setUsers(data.users);
+
+      if (response.status === 401) {
+        setAccessState('denied');
+        setUsers([]);
+        router.replace('/admin?denied=users');
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to load users');
+      }
+
+      setUsers(data.users);
     } catch (error) {
-      console.error('Failed to load users:', error);
+      console.error('Failed to load users', {
+        page: '/admin/users',
+        error: error instanceof Error ? { message: error.message, stack: error.stack } : error,
+      });
+      setError('Failed to load users.');
     } finally {
-      setLoading(false);
+      setLoadingUsers(false);
     }
   }
 
@@ -60,7 +114,7 @@ export default function UsersManagementPage() {
     e.preventDefault();
     setError('');
     setSuccess('');
-    setLoading(true);
+    setSubmittingUser(true);
 
     try {
       const response = await fetch('/api/admin/users', {
@@ -71,16 +125,22 @@ export default function UsersManagementPage() {
 
       const data = await response.json();
 
+      if (response.status === 401) {
+        setAccessState('denied');
+        router.replace('/admin?denied=users');
+        return;
+      }
+
       if (!response.ok) throw new Error(data.error || 'Failed to create user');
 
       setSuccess('User created successfully!');
       setFormData({ email: '', name: '', password: '', role: 'admin' });
       setShowCreateForm(false);
-      loadUsers();
-    } catch (error: any) {
-      setError(error.message || 'Failed to create user');
+      await loadUsers();
+    } catch (error: unknown) {
+      setError(error instanceof Error ? error.message : 'Failed to create user');
     } finally {
-      setLoading(false);
+      setSubmittingUser(false);
     }
   }
 
@@ -93,11 +153,18 @@ export default function UsersManagementPage() {
     try {
       const response = await fetch(`/api/admin/users/${userId}`, { method: 'DELETE' });
       const data = await response.json();
+
+      if (response.status === 401) {
+        setAccessState('denied');
+        router.replace('/admin?denied=users');
+        return;
+      }
+
       if (!response.ok) throw new Error(data.error || 'Failed to delete user');
       setSuccess('User deleted successfully');
-      loadUsers();
-    } catch (error: any) {
-      setError(error.message || 'Failed to delete user');
+      await loadUsers();
+    } catch (error: unknown) {
+      setError(error instanceof Error ? error.message : 'Failed to delete user');
     }
   }
 
@@ -119,12 +186,58 @@ export default function UsersManagementPage() {
         body: JSON.stringify({ action }),
       });
       const data = await response.json();
+
+      if (response.status === 401) {
+        setAccessState('denied');
+        router.replace('/admin?denied=users');
+        return;
+      }
+
       if (!response.ok) throw new Error(data.error || 'Action failed');
       setSuccess(data.message);
-      loadUsers();
-    } catch (error: any) {
-      setError(error.message || 'Action failed');
+      await loadUsers();
+    } catch (error: unknown) {
+      setError(error instanceof Error ? error.message : 'Action failed');
     }
+  }
+
+  if (accessState === 'loading') {
+    return (
+      <div className="min-h-screen bg-background">
+        <AdminNavigation />
+
+        <main className="container mx-auto px-4 py-8 max-w-4xl">
+          <Card className="p-6">
+            <div className="text-center py-8 text-muted-foreground">Checking admin access...</div>
+          </Card>
+        </main>
+      </div>
+    );
+  }
+
+  if (accessState === 'denied') {
+    return (
+      <div className="min-h-screen bg-background">
+        <AdminNavigation />
+
+        <main className="container mx-auto px-4 py-8 max-w-4xl">
+          <Card className="p-6">
+            <h1 className="text-2xl font-bold mb-2">User Management</h1>
+            <p className="text-muted-foreground mb-6">
+              User management is available to administrators only.
+            </p>
+            {error ? (
+              <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-600 dark:text-red-400">
+                {error}
+              </div>
+            ) : null}
+            <Button asChild>
+              <Link href="/admin">Return to dashboard</Link>
+            </Button>
+          </Card>
+        </main>
+      </div>
+    );
   }
 
   return (
@@ -208,7 +321,9 @@ export default function UsersManagementPage() {
                 </div>
               </div>
               <div className="flex gap-3">
-                <Button type="submit" disabled={loading}>Create User</Button>
+                <Button type="submit" disabled={submittingUser}>
+                  {submittingUser ? 'Creating...' : 'Create User'}
+                </Button>
                 <Button type="button" variant="outline" onClick={() => setShowCreateForm(false)}>
                   Cancel
                 </Button>
@@ -223,7 +338,7 @@ export default function UsersManagementPage() {
             <h2 className="text-xl font-semibold">All Users ({users.length})</h2>
           </div>
 
-          {loading && !users.length ? (
+          {loadingUsers && !users.length ? (
             <div className="text-center py-8 text-muted-foreground">Loading users...</div>
           ) : users.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">No users found</div>

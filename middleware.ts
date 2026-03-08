@@ -1,6 +1,18 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+function createLoginRedirect(origin: string, pathname: string) {
+  const loginUrl = new URL("/admin/login", origin);
+  loginUrl.searchParams.set("from", pathname);
+  return NextResponse.redirect(loginUrl);
+}
+
+function createAdminRedirect(origin: string) {
+  const adminUrl = new URL("/admin", origin);
+  adminUrl.searchParams.set("denied", "users");
+  return NextResponse.redirect(adminUrl);
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname, origin } = request.nextUrl;
 
@@ -12,9 +24,7 @@ export async function middleware(request: NextRequest) {
     const sessionCookie = request.cookies.get("auth_session");
 
     if (!sessionCookie) {
-      const loginUrl = new URL("/admin/login", origin);
-      loginUrl.searchParams.set("from", pathname);
-      return NextResponse.redirect(loginUrl);
+      return createLoginRedirect(origin, pathname);
     }
 
     try {
@@ -26,12 +36,14 @@ export async function middleware(request: NextRequest) {
       });
 
       if (!sessionCheck.ok) {
-        const loginUrl = new URL("/admin/login", origin);
-        loginUrl.searchParams.set("from", pathname);
-        return NextResponse.redirect(loginUrl);
+        return createLoginRedirect(origin, pathname);
       }
 
       const sessionData = await sessionCheck.json();
+      if (pathname.startsWith("/admin/users") && sessionData.user?.role !== "admin") {
+        return createAdminRedirect(origin);
+      }
+
       if (
         sessionData.user?.mfaRequired &&
         !sessionData.user?.mfaEnabled &&
@@ -49,9 +61,7 @@ export async function middleware(request: NextRequest) {
         error: error instanceof Error ? { message: error.message, stack: error.stack } : error,
       });
 
-      const loginUrl = new URL("/admin/login", origin);
-      loginUrl.searchParams.set("from", pathname);
-      return NextResponse.redirect(loginUrl);
+      return createLoginRedirect(origin, pathname);
     }
   }
 

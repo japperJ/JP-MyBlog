@@ -5,12 +5,56 @@ import Link from "next/link";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { Moon, Sun, LogOut } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+
+type UserRole = "admin" | "editor" | null;
 
 export function AdminNavigation() {
   const { theme, setTheme } = useTheme();
   const router = useRouter();
   const [loggingOut, setLoggingOut] = useState(false);
+  const [userRole, setUserRole] = useState<UserRole>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadSessionRole() {
+      try {
+        const response = await fetch("/api/auth/session", {
+          cache: "no-store",
+        });
+
+        if (!response.ok) {
+          if (!cancelled) {
+            setUserRole(null);
+          }
+          return;
+        }
+
+        const data = await response.json();
+        const nextRole = data.user?.role;
+
+        if (!cancelled) {
+          setUserRole(nextRole === "admin" || nextRole === "editor" ? nextRole : null);
+        }
+      } catch (error) {
+        console.error("Admin navigation session load error", {
+          component: "AdminNavigation",
+          error: error instanceof Error ? { message: error.message, stack: error.stack } : error,
+        });
+
+        if (!cancelled) {
+          setUserRole(null);
+        }
+      }
+    }
+
+    loadSessionRole();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleLogout = async () => {
     setLoggingOut(true);
@@ -50,9 +94,11 @@ export function AdminNavigation() {
           <Link href="/admin" className="hover:text-primary transition-colors font-medium">
             Admin
           </Link>
-          <Link href="/admin/users" className="hover:text-primary transition-colors">
-            Users
-          </Link>
+          {userRole === "admin" ? (
+            <Link href="/admin/users" className="hover:text-primary transition-colors">
+              Users
+            </Link>
+          ) : null}
           <Link href="/admin/settings" className="hover:text-primary transition-colors">
             Settings
           </Link>
