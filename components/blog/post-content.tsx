@@ -1,9 +1,27 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import rehypeRaw from "rehype-raw";
+import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import { CodeBlock } from "./code-block";
+
+/**
+ * Sanitization schema based on the rehype-sanitize defaults.
+ * We extend it to allow `target` and safe `rel` values on links so
+ * the custom `<a>` component below can open external URLs in a new tab.
+ */
+const sanitizeSchema = {
+  ...defaultSchema,
+  attributes: {
+    ...defaultSchema.attributes,
+    a: [
+      ...(defaultSchema.attributes?.a || []),
+      "target",
+      ["rel", "noopener", "noreferrer", "nofollow"],
+    ],
+  },
+};
 
 interface PostContentProps {
   content: string;
@@ -14,6 +32,7 @@ export function PostContent({ content }: PostContentProps) {
     <div className="markdown-content prose prose-slate dark:prose-invert max-w-none">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
+        rehypePlugins={[rehypeRaw, [rehypeSanitize, sanitizeSchema]]}
         components={{
           code({ node, inline, className, children, ...props }: any) {
             const match = /language-(\w+)/.exec(className || "");
@@ -26,6 +45,21 @@ export function PostContent({ content }: PostContentProps) {
               <code className={className} {...props}>
                 {children}
               </code>
+            );
+          },
+          a({ node, children, href, ...props }: any) {
+            const isExternal =
+              href && (href.startsWith("http://") || href.startsWith("https://"));
+            return (
+              <a
+                href={href}
+                {...(isExternal
+                  ? { target: "_blank", rel: "noopener noreferrer" }
+                  : {})}
+                {...props}
+              >
+                {children}
+              </a>
             );
           },
         }}
