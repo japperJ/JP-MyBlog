@@ -1,11 +1,15 @@
 import type { Metadata } from "next";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { Navigation } from "@/components/navigation";
 import { Footer } from "@/components/footer";
 import { PostCard } from "@/components/blog/post-card";
+import { BlogPagination } from "@/components/blog/pagination";
 
 /** Re-validate the blog listing so newly published posts appear. */
 export const revalidate = 60;
+
+const PAGE_SIZE = 9;
 
 export const metadata: Metadata = {
   title: "Blog",
@@ -22,27 +26,37 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function BlogPage() {
-  const posts = await prisma.post.findMany({
-    where: {
-      published: true,
-    },
-    include: {
-      author: {
-        select: {
-          name: true,
-        },
+type Props = {
+  searchParams: Promise<{
+    page?: string;
+    category?: string;
+  }>;
+};
+
+export default async function BlogPage({ searchParams }: Props) {
+  const { page: pageParam } = await searchParams;
+  const requestedPage = Math.max(1, parseInt(pageParam || "1", 10));
+
+  const where: Prisma.PostWhereInput = { published: true };
+
+  const [posts, totalPosts] = await Promise.all([
+    prisma.post.findMany({
+      where,
+      include: {
+        author: { select: { name: true } },
+        categories: { include: { category: true } },
       },
-      categories: {
-        include: {
-          category: true,
-        },
-      },
-    },
-    orderBy: {
-      publishedAt: "desc",
-    },
-  });
+      orderBy: { publishedAt: "desc" },
+      skip: (requestedPage - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
+    }),
+    prisma.post.count({ where }),
+  ]);
+
+  const totalPages = Math.ceil(totalPosts / PAGE_SIZE);
+  // Clamp page to valid range (e.g. /blog?page=999 → last page)
+  const currentPage =
+    totalPages > 0 ? Math.min(requestedPage, totalPages) : 1;
 
   return (
     <>
@@ -69,6 +83,8 @@ export default async function BlogPage() {
               ))}
             </div>
           )}
+
+          <BlogPagination currentPage={currentPage} totalPages={totalPages} />
         </div>
       </main>
       <Footer />
