@@ -2,6 +2,7 @@
 
 import { useRef } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { Navigation } from "@/components/navigation";
 import { PostContent } from "@/components/blog/post-content";
 import { ReadingProgress } from "@/components/blog/reading-progress";
@@ -138,12 +139,13 @@ export default function PostPage({ post, breadcrumbs, relatedPosts }: PostPagePr
             <div className="mt-12 pt-8 border-t">
               <div className="flex flex-wrap gap-2">
                 {post.tags.map(({ tag }) => (
-                  <span
+                  <Link
                     key={tag.slug}
+                    href={`/blog/tag/${tag.slug}`}
                     className="text-sm bg-muted px-3 py-1 rounded hover:bg-muted/70 transition-colors"
                   >
                     #{tag.name}
-                  </span>
+                  </Link>
                 ))}
               </div>
             </div>
