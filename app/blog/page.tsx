@@ -47,18 +47,9 @@ export default async function BlogPage({ searchParams }: Props) {
     };
   }
 
-  // Run post query, count, and category list in parallel
-  const [posts, totalPosts, categories] = await Promise.all([
-    prisma.post.findMany({
-      where,
-      include: {
-        author: { select: { name: true } },
-        categories: { include: { category: true } },
-      },
-      orderBy: { publishedAt: "desc" },
-      skip: (requestedPage - 1) * PAGE_SIZE,
-      take: PAGE_SIZE,
-    }),
+  // Fetch count + categories in parallel first, then clamp page before querying posts.
+  // This ensures /blog?page=999 returns the actual last page of posts (not empty).
+  const [totalPosts, categories] = await Promise.all([
     prisma.post.count({ where }),
     // Only fetch categories that have at least one published post
     prisma.category.findMany({
@@ -72,6 +63,17 @@ export default async function BlogPage({ searchParams }: Props) {
   // Clamp page to valid range (e.g. /blog?page=999 → last page)
   const currentPage =
     totalPages > 0 ? Math.min(requestedPage, totalPages) : 1;
+
+  const posts = await prisma.post.findMany({
+    where,
+    include: {
+      author: { select: { name: true } },
+      categories: { include: { category: true } },
+    },
+    orderBy: { publishedAt: "desc" },
+    skip: (currentPage - 1) * PAGE_SIZE,
+    take: PAGE_SIZE,
+  });
 
   // Build search params to preserve category across pagination links
   const paginationParams: Record<string, string> = {};
