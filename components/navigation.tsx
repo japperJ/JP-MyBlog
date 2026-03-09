@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
-import { Moon, Sun, Menu } from "lucide-react";
+import { Moon, Sun, Menu, Search } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -34,6 +34,21 @@ export function Navigation() {
     </Button>
   );
 
+  const searchTrigger = (
+    <Button
+      variant="outline"
+      size="sm"
+      className="text-muted-foreground gap-2"
+      onClick={() => window.dispatchEvent(new Event("open-search"))}
+    >
+      <Search className="h-4 w-4" />
+      <span className="hidden lg:inline text-xs">Search</span>
+      <kbd className="pointer-events-none hidden md:inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+        <span className="text-xs">⌘</span>K
+      </kbd>
+    </Button>
+  );
+
   return (
     <nav className="border-b sticky top-0 bg-background/80 backdrop-blur-sm z-50">
       <div className="container mx-auto px-4 py-4 flex items-center justify-between">
@@ -52,11 +67,20 @@ export function Navigation() {
               {label}
             </Link>
           ))}
+          {searchTrigger}
           {themeToggle}
         </div>
 
         {/* Mobile nav */}
         <div className="flex items-center gap-2 md:hidden">
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Search"
+            onClick={() => window.dispatchEvent(new Event("open-search"))}
+          >
+            <Search className="h-5 w-5" />
+          </Button>
           {themeToggle}
           <Sheet>
             <SheetTrigger asChild>
