@@ -3,8 +3,10 @@ import { notFound } from "next/navigation";
 import PostPageClient from "@/components/blog/post-page-client";
 import { Breadcrumbs, type BreadcrumbItem } from "@/components/blog/breadcrumbs";
 import { RelatedPosts } from "@/components/blog/related-posts";
+import { PostNavigation } from "@/components/blog/post-navigation";
 import { Footer } from "@/components/footer";
 import { prisma } from "@/lib/prisma";
+import { extractHeadings } from "@/lib/markdown";
 import { getAppUrl, getConfiguredAppOrigin } from "@/lib/runtime-config";
 
 /**
@@ -142,30 +144,55 @@ export default async function PostPage({ params }: Props) {
     },
   });
 
-  // Query related posts from the same categories, excluding the current post
+  // Query related posts and prev/next posts in parallel
   const categoryIds = post.categories.map((pc) => pc.category.id);
-  const relatedPosts = categoryIds.length > 0
-    ? await prisma.post.findMany({
-        where: {
-          published: true,
-          id: { not: post.id },
-          categories: { some: { categoryId: { in: categoryIds } } },
-        },
-        select: {
-          title: true,
-          slug: true,
-          excerpt: true,
-          coverImage: true,
-          publishedAt: true,
-        },
-        orderBy: { publishedAt: "desc" },
-        take: 3,
-      })
-    : [];
+  const [relatedPosts, prevPost, nextPost] = await Promise.all([
+    categoryIds.length > 0
+      ? prisma.post.findMany({
+          where: {
+            published: true,
+            id: { not: post.id },
+            categories: { some: { categoryId: { in: categoryIds } } },
+          },
+          select: {
+            title: true,
+            slug: true,
+            excerpt: true,
+            coverImage: true,
+            publishedAt: true,
+          },
+          orderBy: { publishedAt: "desc" },
+          take: 3,
+        })
+      : Promise.resolve([]),
+    // Previous post: published before this one, ordered newest-first
+    post.publishedAt
+      ? prisma.post.findFirst({
+          where: {
+            published: true,
+            publishedAt: { lt: post.publishedAt },
+          },
+          orderBy: { publishedAt: "desc" },
+          select: { title: true, slug: true },
+        })
+      : Promise.resolve(null),
+    // Next post: published after this one, ordered oldest-first
+    post.publishedAt
+      ? prisma.post.findFirst({
+          where: {
+            published: true,
+            publishedAt: { gt: post.publishedAt },
+          },
+          orderBy: { publishedAt: "asc" },
+          select: { title: true, slug: true },
+        })
+      : Promise.resolve(null),
+  ]);
 
   const appOrigin = getConfiguredAppOrigin();
   const postUrl = getAppUrl(`/blog/${slug}`);
   const primaryCategory = post.categories[0]?.category;
+  const headings = extractHeadings(post.content);
 
   const imageUrl = post.coverImage
     ? new URL(post.coverImage, appOrigin).toString()
@@ -214,7 +241,12 @@ export default async function PostPage({ params }: Props) {
       />
       <PostPageClient
         post={post}
+        headings={headings}
+        shareUrl={postUrl}
         breadcrumbs={<Breadcrumbs items={breadcrumbItems} />}
+        postNavigation={
+          <PostNavigation prevPost={prevPost} nextPost={nextPost} />
+        }
         relatedPosts={<RelatedPosts posts={relatedPosts} />}
       />
       <Footer />
