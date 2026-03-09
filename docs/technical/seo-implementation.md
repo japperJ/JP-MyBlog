@@ -1,6 +1,17 @@
+---
+title: "SEO Implementation"
+description: "JSON-LD structured data, metadata generation, OG images, sitemap, RSS feed, and ISR revalidation strategy"
+category: technical
+created: 2025-01-15
+updated: 2025-07-26
+---
+
 # SEO Implementation
 
 ## Invariants
+
+> [!important] SEO contracts
+> These must hold for search engine indexing and social sharing to work correctly.
 
 1. Every published post emits a `BlogPosting` JSON-LD schema with `headline`, `datePublished`, `dateModified`, `author`, and `publisher`.
 2. The root layout emits a `WebSite` JSON-LD schema with a `SearchAction` potential action.
@@ -145,6 +156,9 @@ export default function robots(): MetadataRoute.Robots {
 
 **Trade-off:** The sitemap URL is currently hardcoded to the production URL. If the blog moves to a custom domain, this needs to be updated to use `getConfiguredAppOrigin()`. This is a known limitation.
 
+> [!warning] Hardcoded sitemap URL
+> `app/robots.ts` hardcodes `https://jp-my-blog.vercel.app/sitemap.xml`. If the domain changes, update this file and `NEXT_PUBLIC_APP_URL`.
+
 ## Sitemap generation (`app/sitemap.ts`)
 
 The sitemap is generated dynamically on each request:
@@ -162,6 +176,18 @@ The sitemap is generated dynamically on each request:
 | `/blog/category/{category-slug}` | 0.6 | weekly |
 
 Each entry includes a `lastModified` timestamp from the database (`updatedAt` field).
+
+The sitemap also includes **tag pages** (`/blog/tag/{tag-slug}`) which were added in Phase 4. Each tag page has a `lastModified` timestamp based on the most recently updated post with that tag.
+
+## Metadata for Tag Pages
+
+Tag pages at `/blog/tag/[slug]` generate per-tag metadata:
+
+- `title` — `"Posts tagged '{tag name}'"` (uses root layout template for suffix)
+- `description` — `"Browse all posts tagged with {tag name}"`
+- OG image uses the dynamic `/api/og` route with the tag name as the title parameter
+
+This ensures tag pages are discoverable by search engines and shareable on social media.
 
 ## RSS feed (`app/feed.xml/route.ts`)
 
@@ -205,3 +231,10 @@ Generates an RSS 2.0 XML feed with Atom self-link:
 | Sitemap has localhost URLs | Build ran without `NEXT_PUBLIC_APP_URL` or `VERCEL_URL` | Inspect `/sitemap.xml` | Set environment variables, redeploy |
 | Google Search Console reports duplicate content | Multiple preview URLs indexed without canonical | Search Console "Coverage" report | Set canonical URLs via `NEXT_PUBLIC_APP_URL`, add `noindex` to preview deployments if needed |
 | RSS feed empty | No published posts in database | Visit `/feed.xml` directly | Publish at least one post |
+
+## Related Documentation
+
+- [[architecture]] — System overview, ISR strategy, and rendering breakdown
+- [[api-reference#get-apiog]] — OG image endpoint details
+- [[design-decisions#rendering-strategy]] — Why ISR and its impact on SEO freshness
+- [[deployment-model]] — Environment variables that affect metadata URLs

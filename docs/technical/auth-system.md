@@ -1,10 +1,21 @@
+---
+title: "Auth System Architecture"
+description: "Session lifecycle, MFA implementation, cookie design, rate limiting, and the self-fetch deadlock fix"
+category: technical
+created: 2025-01-15
+updated: 2025-07-26
+---
+
 # Auth System Architecture
 
 ## Invariants
 
+> [!important] Security contracts
+> These must hold true at all times. Violating any one creates a security vulnerability or deadlock.
+
 1. Session tokens are cryptographically random 32-byte hex strings, stored in the database, and looked up on every authenticated request.
 2. Passwords are hashed with bcrypt (cost factor 10) and never stored or transmitted in plaintext.
-3. Edge middleware never performs session validation — it only checks cookie existence.
+3. Edge middleware never performs session validation — it only checks cookie existence. See [[design-decisions#edge-middleware]].
 4. Full session validation (database lookup, role check, MFA enforcement) runs exclusively in the Node.js runtime via the admin layout server component.
 5. MFA challenge tokens are HMAC-SHA256 signed, bound to a user ID, and expire after 10 minutes.
 6. Auth cookies are `httpOnly`, `sameSite: strict`, `path: /`, and host-only (no `domain` attribute).
@@ -58,6 +69,9 @@ Admin Layout (app/admin/layout.tsx)
 ```
 
 ## The self-fetch deadlock fix
+
+> [!warning] Critical Vercel Hobby constraint
+> This failure mode is specific to Vercel Hobby tier and its shared concurrency pool between Edge and Serverless.
 
 **Problem:** An earlier design validated sessions in middleware by calling `fetch("/api/auth/session")`. On Vercel Hobby tier, this caused a deadlock:
 
@@ -115,6 +129,9 @@ Format: `base64url(userId|expiry|hmac-sha256(userId|expiry, MFA_TOKEN_SECRET))`
 
 **Hosted requirement:** `MFA_TOKEN_SECRET` must be set as an environment variable on Vercel. Without it, `getMfaTokenSecret()` throws at module load time for hosted deployments. Locally, it falls back to a random secret generated at startup — acceptable because local dev is single-process.
 
+> [!note] Stateless by design
+> The HMAC-signed token approach avoids a database round-trip for the MFA challenge step. This is important in Vercel's serverless model where the login request and the MFA verify request may execute in different function instances — there's no shared in-memory state to rely on.
+
 ### Session invalidation after MFA changes
 
 `destroyOtherSessions()` in `lib/auth.ts` deletes all sessions for a user except the current one. This is called after MFA enable/disable to ensure sessions created before the security change don't bypass the new MFA requirement.
@@ -127,9 +144,10 @@ Format: `base64url(userId|expiry|hmac-sha256(userId|expiry, MFA_TOKEN_SECRET))`
 
 ## Rate limiting on auth endpoints
 
-`lib/rate-limit.ts` provides in-memory rate limiting keyed by client IP (from `x-forwarded-for` or `x-real-ip` headers). Auth endpoints use this to prevent brute-force attacks.
+> [!warning] In-process limitation
+> Rate limiting uses an in-memory `Map` in `lib/rate-limit.ts`. It resets on serverless cold starts and doesn't share state across instances. Acceptable for Vercel Hobby (single instance); needs Redis for multi-instance scale.
 
-**Limitation:** In-memory rate limiting resets on serverless cold starts and doesn't share state across instances. Acceptable for Vercel Hobby (single instance), but a Redis-backed solution (e.g., Upstash) is needed for production scale.
+`lib/rate-limit.ts` provides in-memory rate limiting keyed by client IP (from `x-forwarded-for` or `x-real-ip` headers). Auth endpoints use this to prevent brute-force attacks.
 
 ## Source file reference
 
@@ -152,3 +170,11 @@ Format: `base64url(userId|expiry|hmac-sha256(userId|expiry, MFA_TOKEN_SECRET))`
 | MFA verify returns "invalid token" | `MFA_TOKEN_SECRET` mismatch between login and verify | Compare env var across deployments | Set a stable `MFA_TOKEN_SECRET` in Vercel |
 | MFA verify returns "invalid token" after 10 min | Token TTL expired | Check timestamp in decoded token | Restart the login flow |
 | "Unauthorized" on admin API calls | Missing or expired `auth_session` cookie | Check cookie in browser DevTools | Log in again |
+
+## Related Documentation
+
+- [[architecture]] — System overview and auth architecture summary
+- [[api-reference]] — All auth API endpoints with request/response shapes
+- [[design-decisions#auth]] — Why custom auth over NextAuth/better-auth/Clerk
+- [[design-decisions#mfa]] — Why TOTP over WebAuthn/SMS
+- [[design-decisions#edge-middleware]] — Why cookie-presence only at the edge

@@ -1,6 +1,17 @@
+---
+title: "Deployment Model"
+description: "Vercel Hobby tier constraints, environment variables, build pipeline, database provisioning, and deployment verification"
+category: technical
+created: 2025-01-15
+updated: 2025-07-26
+---
+
 # Deployment Model
 
 ## Invariants
+
+> [!important] Deployment contracts
+> These must hold for any deployment to succeed.
 
 1. The Vercel Hobby tier imposes a **10-second function timeout** and **no persistent filesystem**.
 2. All environment variables required at build time must be set in the Vercel dashboard before deploying.
@@ -22,6 +33,9 @@
 ## Environment variable contract
 
 ### Required
+
+> [!danger] Missing env vars cause build failures or runtime errors
+> Both `DATABASE_URL` and `MFA_TOKEN_SECRET` must be set in the Vercel dashboard before deploying. Without them, the build fails or MFA login breaks.
 
 | Variable | When needed | Purpose |
 |----------|------------|---------|
@@ -59,6 +73,10 @@
 4. The connection string includes SSL by default (`?sslmode=require`).
 
 **Neon-specific behaviors:**
+
+> [!note] Neon cold start
+> Free tier databases auto-suspend after 5 minutes of inactivity. First request after suspension takes 2–5 seconds, which counts against Vercel's 10-second function timeout.
+
 - Free tier databases auto-suspend after 5 minutes of inactivity.
 - First request after suspension takes 2–5 seconds (cold start).
 - This cold start counts against Vercel's 10-second function timeout.
@@ -175,8 +193,9 @@ Covers: health endpoint, admin login, post/category/tag CRUD, OG image generatio
 | First request slow (2–5s) after inactivity | Neon cold start | Vercel function duration metrics | Upgrade Neon plan or accept cold start latency |
 | Upload returns 501 | Expected behavior on Vercel | N/A | Use external image URLs |
 
-## Backwards compatibility
+## Related Documentation
 
-- The `NEXTAUTH_*` environment variables in `.env.example` are legacy. They are not read by any current code path.
-- The Docker configuration files (`Dockerfile`, `docker-compose.yml`) are for self-hosting. They are not used by Vercel deployments.
-- The `startprompt.md` file is a development artifact and has no effect on deployment.
+- [[architecture]] — System architecture and ISR strategy
+- [[api-reference]] — API routes and their auth requirements
+- [[design-decisions#rendering-strategy]] — Why ISR over SSR/SSG/CSR
+- [[design-decisions#image-handling]] — Why HTTPS URLs only on Vercel
