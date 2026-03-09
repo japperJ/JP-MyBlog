@@ -68,9 +68,9 @@
   }
 }
 
-/* Code highlighting styles */
+/* Code highlighting styles — layout only; CDN theme controls colors */
 .hljs {
-  @apply bg-secondary p-4 rounded-md overflow-x-auto;
+  @apply p-4 rounded-md overflow-x-auto;
 }
 
 /* Custom scrollbar */

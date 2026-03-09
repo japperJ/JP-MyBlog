@@ -3,6 +3,7 @@ import { Inter, JetBrains_Mono } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import { BackToTop } from "@/components/back-to-top";
 import { SearchDialog } from "@/components/search-dialog";
+import { CodeTheme } from "@/components/code-theme";
 import { getConfiguredAppOrigin } from "@/lib/runtime-config";
 import "./globals.css";
 
@@ -74,6 +75,7 @@ export default function RootLayout({
         <link
           rel="stylesheet"
           href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css"
+          data-highlight-theme=""
         />
         <script
           type="application/ld+json"
@@ -90,6 +92,7 @@ export default function RootLayout({
           {children}
           <SearchDialog />
           <BackToTop />
+          <CodeTheme />
         </ThemeProvider>
       </body>
     </html>
