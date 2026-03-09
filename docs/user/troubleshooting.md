@@ -1,3 +1,11 @@
+---
+title: "Troubleshooting"
+description: "Find your symptom, understand why it happens, and fix it"
+category: user
+created: 2025-01-15
+updated: 2025-01-15
+---
+
 # Troubleshooting
 
 Find your symptom below, understand why it happens, fix it, and prevent it from recurring.
@@ -15,6 +23,9 @@ Find your symptom below, understand why it happens, fix it, and prevent it from 
 2. Try logging in again at `/admin/login`.
 3. If that doesn't work, check that `DATABASE_URL` in your Vercel environment variables points to a reachable database — the session lookup requires a database connection.
 
+> [!tip] Quick check
+> Open your browser's dev tools → Application → Cookies. Look for `auth_session`. If it exists but you're still being redirected, the session has expired server-side. Clearing the cookie and logging in fresh resolves it.
+
 **Prevent it:** Each Vercel preview URL is a separate login scope. When the URL changes (new deployment), you need to log in again. This is by design.
 
 ---
@@ -23,14 +34,45 @@ Find your symptom below, understand why it happens, fix it, and prevent it from 
 
 **What you see:** You published a post through the admin dashboard, but visiting `/blog/your-new-slug` returns a 404 page.
 
-**Why this happens:** The blog uses Incremental Static Regeneration (ISR) with a 60-second revalidation window. New posts that didn't exist at build time are rendered on-demand, but the first request might briefly 404 while the page is being generated.
+**Why this happens:** The blog uses ISR (Incremental Static Regeneration) with a 60-second revalidation window. New posts that didn't exist at build time are rendered on-demand, but the first request might briefly 404 while the page is being generated.
 
 **Fix:**
-1. Wait 60 seconds and refresh the page. ISR will serve the new page on the next request.
+1. Wait 60 seconds and refresh the page. ISR serves the new page on the next request.
 2. If the post still doesn't appear, verify in the admin dashboard that the post is actually **Published** (not Draft).
 3. Check that the slug matches exactly — slugs are case-sensitive.
 
-**Prevent it:** Always confirm the "Published" toggle is on before saving. The `dynamicParams = true` setting in `app/blog/[slug]/page.tsx` ensures new slugs are rendered on demand, so a full redeploy is never required for new content.
+**Prevent it:** Always confirm the "Published" toggle is on before saving. The `dynamicParams = true` setting ensures new slugs are rendered on demand — a full redeploy is never required for new content.
+
+---
+
+## Search not finding my post
+
+**What you see:** You press ⌘K (Ctrl+K on Windows/Linux) and search for a post, but it doesn't appear in the results.
+
+**Why this happens:** The ⌘K search only returns **published** posts. Draft posts are excluded from search results entirely. The search also requires a minimum of 2 characters.
+
+**Fix:**
+1. Confirm the post has the **Published** toggle set to on in the admin dashboard.
+2. Make sure your search query is at least 2 characters long.
+3. Try searching by a word from the title, excerpt, or body — search covers all three fields.
+
+> [!note]
+> Search results appear instantly from the database — there's no indexing delay. If the post is published and still not appearing, check that the database connection is working (see [[#Database connection errors]]).
+
+---
+
+## Code blocks look wrong
+
+**What you see:** Code blocks in your posts appear without syntax highlighting, or the colors don't match the site's dark/light theme.
+
+**Why this happens:** Syntax highlighting relies on a CDN-loaded highlight.js stylesheet. If the CDN is unreachable (network issues, ad blocker, or corporate firewall), code blocks render as plain monospace text. The theme switching between `github-dark` and `github` styles is handled by swapping a `<link>` tag — if JavaScript is disabled, it may not switch.
+
+**Fix:**
+1. Check your browser's network tab for blocked requests to `cdnjs.cloudflare.com`.
+2. Disable any ad blocker or content filter temporarily to confirm it's not blocking the CDN stylesheet.
+3. Hard-refresh the page (Ctrl+Shift+R / Cmd+Shift+R) to reload the stylesheet.
+
+**Prevent it:** If you're behind a restrictive firewall, the code blocks still render correctly as text — only the color highlighting is affected.
 
 ---
 
@@ -38,15 +80,16 @@ Find your symptom below, understand why it happens, fix it, and prevent it from 
 
 **What you see:** Cover images on posts show as broken images or don't appear at all.
 
-**Why this happens (on Vercel):** File uploads via `/api/upload` are disabled on Vercel because the serverless filesystem is read-only after deployment. If you uploaded an image locally and referenced it as `/uploads/filename.jpg`, that path doesn't exist on Vercel.
+> [!warning] Vercel uploads are disabled
+> File uploads via `/api/upload` are disabled on Vercel because the serverless filesystem is read-only after deployment. If you uploaded an image locally and referenced it as `/uploads/filename.jpg`, that path doesn't exist on Vercel.
 
-**Fix:**
+**Fix (on Vercel):**
 1. Upload your image to an HTTPS-accessible host (Imgur, Cloudinary, or any CDN).
 2. Copy the direct image URL (must start with `https://`).
 3. Edit the post in the admin dashboard and paste the URL into the **Cover Image** field.
 4. Save the post. The image renders immediately — `next/image` accepts any HTTPS source.
 
-**Why this happens (locally):** If images aren't loading on `localhost`, check that the file exists in `public/uploads/` and that you're using the correct filename.
+**Fix (locally):** Check that the file exists in `public/uploads/` and that you're using the correct filename.
 
 **Prevent it:** On Vercel deployments, always use external HTTPS image URLs. Never reference `/uploads/` paths in posts intended for production.
 
@@ -102,7 +145,10 @@ Run `npx tsc --noEmit` locally to see the exact errors. Fix them before pushing 
    ```
    If this succeeds, your connection string is correct.
 
-**Prevent it:** Pin your Neon project to avoid auto-suspend if your provider supports it. For the free tier, accept that the first request after a period of inactivity may take 2–5 seconds while the database wakes up.
+> [!tip]
+> Neon free-tier databases auto-suspend after inactivity. The first request after wake-up takes 2–5 seconds — this is normal, not a bug.
+
+**Prevent it:** Pin your Neon project to avoid auto-suspend if your provider supports it.
 
 ---
 
@@ -120,6 +166,9 @@ Run `npx tsc --noEmit` locally to see the exact errors. Fix them before pushing 
    UPDATE users SET "mfaEnabled" = false, "mfaSecret" = NULL WHERE email = 'admin@aicodingblog.com';
    ```
 
+> [!warning]
+> The SQL command above disables MFA without requiring a TOTP code. Only use this as a last resort when you've lost access to your authenticator app.
+
 ---
 
 ## Preview URL shows stale content
@@ -136,5 +185,6 @@ Run `npx tsc --noEmit` locally to see the exact errors. Fix them before pushing 
 
 ## What's next?
 
-- If your issue isn't listed here, check the [deployment guide](../admin/deployment.md) for environment setup details
-- For deeper system understanding, see the [technical architecture](../technical/architecture.md)
+- **[[getting-started]]** — need to re-run the setup? The quick start guide walks you through it
+- **[[writing-posts]]** — creating a post? The full writing guide is here
+- If your issue isn't listed here, check the [[../admin/deployment|deployment guide]] for environment setup details

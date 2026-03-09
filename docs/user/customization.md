@@ -1,21 +1,97 @@
-# Customizing Your Blog
+---
+title: "Customization"
+description: "Change the theme, footer, metadata, author profile, and site branding without touching the core codebase"
+category: user
+created: 2025-01-15
+updated: 2025-01-15
+---
 
-After this guide, you'll know how to change your blog's name, metadata, author profiles, OG images, and theme to make it your own.
+# Customization
 
-## Site name and metadata
+After following this guide, you'll know every customization point in the blog — from changing the site name to modifying the footer's social links — so you can make it yours without reading source code.
 
-The site-wide name, description, and SEO metadata are defined in the root layout at `app/layout.tsx`. To change them:
+## Theme switching
 
-1. Open `app/layout.tsx`.
-2. Find the `metadata` export and update:
+The blog ships with **dark mode as the default**. Readers toggle between dark and light mode using the sun/moon icon in the navigation bar.
+
+The theme system uses `next-themes` with the `class` strategy, which means Tailwind's `dark:` variant drives all color changes. The theme provider in `app/layout.tsx` is configured as:
+
+```typescript
+<ThemeProvider
+  attribute="class"
+  defaultTheme="dark"
+  enableSystem
+  disableTransitionOnChange
+>
+```
+
+You can change the default experience:
+
+| Setting | Effect |
+|---|---|
+| `defaultTheme="dark"` | New visitors see dark mode (current default) |
+| `defaultTheme="light"` | New visitors see light mode |
+| `defaultTheme="system"` | Follows the visitor's operating system preference |
+
+The `enableSystem` flag means that even with a `defaultTheme` set, readers who explicitly choose "system" in a theme picker would follow their OS. The toggle in the nav cycles between dark and light directly.
+
+## Code block themes
+
+Syntax highlighting in blog posts automatically switches between two themes when the reader toggles dark/light mode:
+
+- **Dark mode** → `github-dark` theme
+- **Light mode** → `github` theme
+
+This happens through a CDN-loaded highlight.js stylesheet. The `CodeTheme` component in `components/code-theme.tsx` watches the current theme and swaps the `<link>` tag's `href` attribute. You don't need to configure anything — it works out of the box.
+
+> [!tip] No re-render needed
+> The theme switch is instant because it swaps a CSS stylesheet URL, not React state. Code blocks re-highlight with the new colors without any page flicker.
+
+## Footer customization
+
+The footer appears on all public pages (homepage, blog listing, post pages, category and tag pages) but not on admin pages.
+
+It has a responsive four-column layout:
+- **4 columns** on desktop (lg and above)
+- **2 columns** on tablet (md)
+- **Stacked** on mobile
+
+### Changing social links
+
+The social link URLs in the footer are currently placeholders. To point them to your real profiles, edit `components/footer.tsx` and find the social link entries:
+
+```typescript
+// Current placeholder values — replace with your actual URLs
+{ href: "https://github.com", icon: Github, label: "GitHub" }
+{ href: "https://linkedin.com", icon: Linkedin, label: "LinkedIn" }
+{ href: "https://x.com", icon: Twitter, label: "X (Twitter)" }
+```
+
+Change each `href` to your actual profile URL:
+
+```typescript
+{ href: "https://github.com/your-username", icon: Github, label: "GitHub" }
+{ href: "https://linkedin.com/in/your-profile", icon: Linkedin, label: "LinkedIn" }
+{ href: "https://x.com/your-handle", icon: Twitter, label: "X (Twitter)" }
+```
+
+The footer also includes an RSS feed link that automatically points to your blog's `/feed.xml` route.
+
+### Changing the footer description
+
+In the same `components/footer.tsx` file, the "About" column contains a short description blurb. Update the text to describe your blog's focus.
+
+## Site metadata
+
+The blog name, description, and SEO metadata live in `app/layout.tsx`. Find the `metadata` export and update these values:
 
 ```typescript
 export const metadata: Metadata = {
   title: {
-    default: "Your Blog Name",           // appears in browser tabs
-    template: "%s | Your Blog Name",     // pattern for post pages
+    default: "Your Blog Name",
+    template: "%s | Your Blog Name",
   },
-  description: "Your blog description for search engines",
+  description: "A brief description of your blog for search engines",
   keywords: ["your", "keywords", "here"],
   authors: [{ name: "Your Name" }],
   creator: "Your Name",
@@ -32,92 +108,102 @@ export const metadata: Metadata = {
 };
 ```
 
-3. Update the `websiteJsonLd` object in the same file to match:
+Also update the `websiteJsonLd` structured data object in the same file so Google's search results reflect your blog name:
 
 ```typescript
 const websiteJsonLd = {
   "@context": "https://schema.org",
   "@type": "WebSite",
   name: "Your Blog Name",
-  // ... rest of the object
+  // update other fields to match
 };
 ```
 
-4. Commit and redeploy. The changes take effect on the next build.
+### Setting your production URL
 
-## Setting your production URL
+The `NEXT_PUBLIC_APP_URL` environment variable controls canonical URLs, the sitemap, RSS feed links, and OG image generation.
 
-The blog derives its canonical URLs, sitemap, RSS feed, and OG image links from the configured origin. You have two options:
+- **Local development:** Keep `NEXT_PUBLIC_APP_URL=http://localhost:3000` in `.env.local`.
+- **Vercel without custom domain:** Leave it unset. The app reads `VERCEL_URL` automatically.
+- **Vercel with custom domain:** Set `NEXT_PUBLIC_APP_URL=https://yourdomain.com` in your Vercel environment variables.
 
-- **On Vercel (no custom domain):** Leave `NEXT_PUBLIC_APP_URL` unset. The app reads `VERCEL_URL` automatically.
-- **With a custom domain:** Set `NEXT_PUBLIC_APP_URL` in your Vercel environment variables to your domain (e.g., `https://myblog.com`).
-
-For local development, keep `NEXT_PUBLIC_APP_URL=http://localhost:3000` in your `.env.local`.
-
-## Author profile
-
-Update your author profile through the admin dashboard:
-
-1. Log in at `/admin/login`.
-2. Go to **Settings**.
-3. Update your **name**, **bio**, and **avatar URL**.
-4. Click **Save**.
-
-Your author information appears on every post you write, including in the JSON-LD structured data (BlogPosting schema — metadata that helps Google display rich search results) that search engines consume.
+> [!warning] robots.txt sitemap URL is hardcoded
+> The file `app/robots.ts` currently hardcodes the sitemap URL to `https://jp-my-blog.vercel.app/sitemap.xml`. If you deploy to a different domain, update this file to point to your actual domain. Otherwise, search engines won't find your sitemap.
 
 ## OG images (social sharing previews)
 
-When someone shares a post on Twitter, Discord, or Slack, they see a generated Open Graph image. The OG image pipeline:
+When someone shares a post on X (Twitter), LinkedIn, Discord, or Slack, they see a generated Open Graph image. The blog handles this automatically:
 
-- Generates a 1200×630 image dynamically at `/api/og`
-- Includes the post title, excerpt, category, and your blog's hostname
-- Uses a purple gradient design with white text
-- Falls back to the post's cover image if one is set
+- A 1200×630 PNG image is generated dynamically at `/api/og`
+- It includes the post title, excerpt, and category on a purple gradient background
+- Each post's `<meta>` tags point to its unique OG image URL with title and excerpt parameters
 
-You don't need to create OG images manually — they're generated automatically for every published post.
+You don't need to create OG images manually. To customize the design (colors, layout, fonts), edit `app/api/og/route.tsx` — it uses `@vercel/og` with JSX-like syntax running on the Edge Runtime.
 
-To customize the OG image design, edit `app/api/og/route.tsx`. The image is built with `@vercel/og` using JSX-like syntax (it runs on the Edge Runtime and renders to an image).
+## Author profile
 
-## Theme
+Your author information appears on every post you write — in the author card below the content and in the BlogPosting JSON-LD structured data (metadata that helps search engines display rich results).
 
-The blog ships with a dark theme by default, powered by `next-themes`. The theme provider is configured in `app/layout.tsx`:
+To update your profile:
+
+1. Log in at `/admin/login`.
+2. Go to **Settings** in the admin sidebar.
+3. Update your **name**, **bio**, and **avatar URL**.
+4. Click **Save**.
+
+> [!tip] Avatar URL
+> Like cover images, the avatar uses an HTTPS URL. Upload your photo to any image host and paste the direct link.
+
+## Fonts
+
+The blog uses two Google Fonts loaded via `next/font` for optimal performance:
+
+- **Inter** — body text (CSS variable: `--font-inter`)
+- **JetBrains Mono** — code blocks and monospace elements (CSS variable: `--font-jetbrains-mono`)
+
+To change fonts, update the imports and variable assignments in `app/layout.tsx`.
+
+## Adding new pages
+
+The blog uses Next.js App Router. To add a new page:
+
+1. Create a folder under `app/` matching the URL path you want (e.g., `app/about/`).
+2. Add a `page.tsx` file inside that folder.
+3. Export a default React component — this becomes the page content.
 
 ```typescript
-<ThemeProvider
-  attribute="class"
-  defaultTheme="dark"
-  enableSystem
-  disableTransitionOnChange
->
+// app/about/page.tsx
+export default function AboutPage() {
+  return (
+    <main className="container mx-auto px-4 py-8">
+      <h1 className="text-4xl font-bold">About</h1>
+      <p className="mt-4 text-muted-foreground">Your about page content here.</p>
+    </main>
+  );
+}
 ```
 
-Options:
-- `defaultTheme="dark"` — change to `"light"` or `"system"` to match the visitor's OS preference
-- `enableSystem` — when `true`, respects the user's OS dark/light mode setting
-
-The styling is built on Tailwind CSS with the `tailwindcss-animate` plugin. Global styles live in `app/globals.css`. To change colors, fonts, or spacing, edit your Tailwind configuration in `tailwind.config.ts`.
-
-### Fonts
-
-The blog uses two Google Fonts loaded via `next/font`:
-
-- **Inter** — body text (variable: `--font-inter`)
-- **JetBrains Mono** — code blocks and monospace elements (variable: `--font-jetbrains-mono`)
-
-To change fonts, update the imports in `app/layout.tsx`.
+> [!note] Navigation isn't automatic
+> Adding a page file creates the route, but it won't appear in the navigation bar or footer automatically. To add a nav link, edit `components/navigation.tsx`. To add a footer link, edit `components/footer.tsx`.
 
 ## Robots and sitemap
 
 The blog automatically generates:
 
-- **`/robots.txt`** — allows all crawlers except for `/admin/` and `/api/auth/` paths (see `app/robots.ts`)
-- **`/sitemap.xml`** — includes all published posts and categories with last-modified dates (see `app/sitemap.ts`)
-- **`/feed.xml`** — RSS feed of the 20 most recent published posts
+- **`/robots.txt`** — allows all crawlers, blocks `/admin/` and `/api/auth/` paths
+- **`/sitemap.xml`** — includes the homepage, blog listing, all published posts, and all categories with last-modified dates
+- **`/feed.xml`** — RSS 2.0 feed of the 20 most recent published posts
 
-These regenerate on each request based on your current content. No manual maintenance required.
+These regenerate on each request based on your current content. No manual maintenance needed.
+
+## Global styles
+
+All global CSS lives in `app/globals.css`. The styling is built on Tailwind CSS with the `tailwindcss-animate` plugin. To change colors, spacing, or other design tokens, edit `tailwind.config.ts`.
+
+The highlight.js code block styles (padding, border radius, overflow) are defined in `globals.css` under the `.hljs` selector. Background colors come from the CDN theme stylesheet, not from your local CSS.
 
 ## What's next?
 
-- [Write your first post](./writing-posts.md) if you haven't already
-- [Troubleshoot common issues](./troubleshooting.md) if something isn't working as expected
-- [Technical architecture](../technical/architecture.md) if you want to understand how the pieces fit together
+- **[[getting-started]]** — need to revisit the setup steps? The quick start is here
+- **[[writing-posts]]** — ready to create your first post? The full writing guide walks you through it
+- For deeper architecture understanding, see the technical documentation in `docs/technical/`
