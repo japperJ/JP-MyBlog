@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { Navigation } from "@/components/navigation";
+import { Footer } from "@/components/footer";
 import { PostCard } from "@/components/blog/post-card";
 
 /** Re-validate the blog listing so newly published posts appear. */
@@ -70,6 +71,7 @@ export default async function BlogPage() {
           )}
         </div>
       </main>
+      <Footer />
     </>
   );
 }

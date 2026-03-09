@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { Navigation } from "@/components/navigation";
+import { Footer } from "@/components/footer";
 import { PostCard } from "@/components/blog/post-card";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
@@ -111,6 +112,7 @@ export default async function HomePage() {
           </div>
         </section>
       </main>
+      <Footer />
     </>
   );
 }

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import PostPageClient from "@/components/blog/post-page-client";
 import { Breadcrumbs, type BreadcrumbItem } from "@/components/blog/breadcrumbs";
 import { RelatedPosts } from "@/components/blog/related-posts";
+import { Footer } from "@/components/footer";
 import { prisma } from "@/lib/prisma";
 import { getAppUrl, getConfiguredAppOrigin } from "@/lib/runtime-config";
 
@@ -216,6 +217,7 @@ export default async function PostPage({ params }: Props) {
         breadcrumbs={<Breadcrumbs items={breadcrumbItems} />}
         relatedPosts={<RelatedPosts posts={relatedPosts} />}
       />
+      <Footer />
     </>
   );
 }

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { Navigation } from "@/components/navigation";
+import { Footer } from "@/components/footer";
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -69,6 +70,7 @@ export default async function CategoriesPage() {
           </div>
         </div>
       </main>
+      <Footer />
     </>
   );
 }

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { Navigation } from "@/components/navigation";
+import { Footer } from "@/components/footer";
 import { PostCard } from "@/components/blog/post-card";
 import { Breadcrumbs } from "@/components/blog/breadcrumbs";
 import { notFound } from "next/navigation";
@@ -140,6 +141,7 @@ export default async function CategoryPage({ params }: Props) {
           )}
         </div>
       </main>
+      <Footer />
     </>
   );
 }
