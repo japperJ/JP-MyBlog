@@ -1,27 +1,60 @@
+import { Suspense } from "react";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { AdminNavigation } from "@/components/admin-navigation";
+import { AdminPostsFilters } from "@/components/admin-posts-filters";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-export default async function AdminPostsPage() {
-  const posts = await prisma.post.findMany({
-    orderBy: {
-      updatedAt: "desc",
-    },
-    include: {
-      author: {
-        select: {
-          name: true,
+interface AdminPostsPageProps {
+  searchParams: Promise<{ search?: string; category?: string }>;
+}
+
+export default async function AdminPostsPage({ searchParams }: AdminPostsPageProps) {
+  const { search, category } = await searchParams;
+
+  const where: Prisma.PostWhereInput = {};
+
+  if (search) {
+    where.OR = [
+      { title: { contains: search, mode: "insensitive" } },
+      { excerpt: { contains: search, mode: "insensitive" } },
+      { content: { contains: search, mode: "insensitive" } },
+    ];
+  }
+
+  if (category) {
+    where.categories = {
+      some: {
+        category: {
+          slug: category,
         },
       },
-      categories: {
-        include: {
-          category: true,
+    };
+  }
+
+  const [posts, categories] = await Promise.all([
+    prisma.post.findMany({
+      where,
+      orderBy: {
+        updatedAt: "desc",
+      },
+      include: {
+        author: {
+          select: {
+            name: true,
+          },
+        },
+        categories: {
+          include: {
+            category: true,
+          },
         },
       },
-    },
-  });
+    }),
+    prisma.category.findMany({ orderBy: { name: "asc" } }),
+  ]);
 
   return (
     <>
@@ -35,9 +68,19 @@ export default async function AdminPostsPage() {
             </Button>
           </div>
 
+          <div className="mb-6">
+            <Suspense>
+              <AdminPostsFilters categories={categories} />
+            </Suspense>
+          </div>
+
           <Card>
             <CardHeader>
-              <CardTitle>All Posts</CardTitle>
+              <CardTitle>
+                {search || category
+                  ? `Filtered Posts (${posts.length})`
+                  : "All Posts"}
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
@@ -98,7 +141,9 @@ export default async function AdminPostsPage() {
                 ))}
                 {posts.length === 0 && (
                   <p className="text-center text-muted-foreground py-8">
-                    No posts yet. Create your first post to get started!
+                    {search || category
+                      ? "No posts match your search. Try adjusting the filters."
+                      : "No posts yet. Create your first post to get started!"}
                   </p>
                 )}
               </div>
