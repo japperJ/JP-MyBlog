@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { VISITOR_ID_STORAGE_KEY } from "@/lib/visitor-events";
+import { VISITOR_ID_STORAGE_KEY } from "@/lib/visitor-constants";
 
 const VISITOR_ID_COOKIE_NAME = "visitor_id";
 const RECENT_EVENT_WINDOW_MS = 5_000;

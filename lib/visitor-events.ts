@@ -3,8 +3,7 @@ import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { getClientIp } from "@/lib/rate-limit";
-
-export const VISITOR_ID_STORAGE_KEY = "visitor_id";
+import { VISITOR_ID_STORAGE_KEY } from "@/lib/visitor-constants";
 
 export type VisitorEventSource = "client-beacon" | "auth" | "admin" | "api";
 
