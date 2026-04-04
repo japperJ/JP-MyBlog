@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, use } from "react";
+import { useState, useEffect, use, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { AdminNavigation } from "@/components/admin-navigation";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,8 @@ export default function EditPostPage({ params }: { params: Promise<{ id: string 
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingCoverImage, setUploadingCoverImage] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [categories, setCategories] = useState<any[]>([]);
   const [tags, setTags] = useState<any[]>([]);
   const [formData, setFormData] = useState({
@@ -68,6 +70,60 @@ export default function EditPostPage({ params }: { params: Promise<{ id: string 
     }
     fetchData();
   }, [postId, router]);
+
+  const handleCoverImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+
+    if (!file) {
+      return;
+    }
+
+    setUploadingCoverImage(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        let message = "Failed to upload file.";
+
+        try {
+          const data = await res.json();
+          if (typeof data?.error === "string" && data.error.trim()) {
+            message = data.error;
+          }
+        } catch {
+          // Fall back to the default message below.
+        }
+
+        alert(message);
+        return;
+      }
+
+      const data = await res.json();
+
+      if (typeof data?.url !== "string" || !data.url) {
+        throw new Error("Upload did not return a file URL.");
+      }
+
+      const absoluteUrl = new URL(data.url, window.location.origin).toString();
+      setFormData((current) => ({
+        ...current,
+        coverImage: absoluteUrl,
+      }));
+    } catch (error) {
+      console.error("Error uploading cover image:", error);
+      alert(error instanceof Error ? error.message : "Failed to upload file.");
+    } finally {
+      setUploadingCoverImage(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -183,13 +239,34 @@ export default function EditPostPage({ params }: { params: Promise<{ id: string 
 
                 <div>
                   <Label htmlFor="coverImage">Cover Image URL</Label>
-                  <Input
-                    id="coverImage"
-                    type="url"
-                    value={formData.coverImage}
-                    onChange={(e) => setFormData({ ...formData, coverImage: e.target.value })}
-                    placeholder="https://example.com/image.jpg"
-                  />
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap gap-3">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploadingCoverImage}
+                      >
+                        {uploadingCoverImage ? "Uploading..." : "Upload Cover Image"}
+                      </Button>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        aria-label="Upload cover image file"
+                        title="Upload cover image file"
+                        className="hidden"
+                        onChange={handleCoverImageUpload}
+                      />
+                    </div>
+                    <Input
+                      id="coverImage"
+                      type="url"
+                      value={formData.coverImage}
+                      onChange={(e) => setFormData({ ...formData, coverImage: e.target.value })}
+                      placeholder="https://example.com/image.jpg"
+                    />
+                  </div>
                 </div>
 
                 <div className="flex items-center justify-between">
