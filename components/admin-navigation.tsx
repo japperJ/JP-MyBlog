@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
-import { Moon, Sun, LogOut } from "lucide-react";
+import { Moon, Sun, LogOut, Activity } from "lucide-react";
 import { useEffect, useState } from "react";
 
 type UserRole = "admin" | "editor" | null;
@@ -97,6 +97,11 @@ export function AdminNavigation() {
           {userRole === "admin" ? (
             <Link href="/admin/users" className="hover:text-primary transition-colors">
               Users
+            </Link>
+          ) : null}
+          {userRole === "admin" ? (
+            <Link href="/admin/visitors" className="hover:text-primary transition-colors">
+              Visitors
             </Link>
           ) : null}
           <Link href="/admin/settings" className="hover:text-primary transition-colors">

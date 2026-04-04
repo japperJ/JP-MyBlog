@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { createSession, verifyPassword } from "@/lib/auth";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { createMfaToken } from "@/lib/mfa-token";
+import { createVisitorEvent } from "@/lib/visitor-events";
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -25,12 +26,22 @@ function logRouteError(error: unknown) {
 }
 
 export async function POST(request: NextRequest) {
+  const startedAt = Date.now();
   const { allowed, retryAfterMs } = rateLimit(`login:${getClientIp(request.headers)}`, {
     limit: 5,
     windowMs: 60_000,
   });
 
   if (!allowed) {
+    await createVisitorEvent({
+      eventType: "login_rate_limited",
+      source: "auth",
+      request,
+      pathname: "/api/auth/login",
+      responseStatus: 429,
+      durationMs: Date.now() - startedAt,
+    });
+
     return NextResponse.json(
       { error: "Too many login attempts. Please try again later." },
       {
@@ -49,17 +60,48 @@ export async function POST(request: NextRequest) {
     });
 
     if (!user) {
+      await createVisitorEvent({
+        eventType: "login_failure",
+        source: "auth",
+        request,
+        pathname: "/api/auth/login",
+        responseStatus: 401,
+        durationMs: Date.now() - startedAt,
+        metadata: { email },
+      });
+
       return NextResponse.json({ error: "Invalid email or password" }, { status: 401 });
     }
 
     const isValidPassword = await verifyPassword(password, user.passwordHash);
 
     if (!isValidPassword) {
+      await createVisitorEvent({
+        eventType: "login_failure",
+        source: "auth",
+        request,
+        pathname: "/api/auth/login",
+        responseStatus: 401,
+        durationMs: Date.now() - startedAt,
+        metadata: { email: user.email, userId: user.id },
+      });
+
       return NextResponse.json({ error: "Invalid email or password" }, { status: 401 });
     }
 
     if (user.mfaEnabled) {
       const mfaToken = createMfaToken(user.id);
+      await createVisitorEvent({
+        eventType: "login_mfa_challenge",
+        source: "auth",
+        request,
+        pathname: "/api/auth/login",
+        responseStatus: 200,
+        durationMs: Date.now() - startedAt,
+        userId: user.id,
+        metadata: { email: user.email },
+      });
+
       return NextResponse.json({
         mfaRequired: true,
         mfaToken,
@@ -67,6 +109,18 @@ export async function POST(request: NextRequest) {
     }
 
     await createSession(user.id);
+
+    await createVisitorEvent({
+      eventType: "login_success",
+      source: "auth",
+      request,
+      pathname: "/api/auth/login",
+      responseStatus: 200,
+      durationMs: Date.now() - startedAt,
+      userId: user.id,
+      authenticated: true,
+      metadata: { email: user.email },
+    });
 
     return NextResponse.json({
       success: true,
@@ -81,6 +135,15 @@ export async function POST(request: NextRequest) {
     logRouteError(error);
 
     if (error instanceof z.ZodError) {
+      await createVisitorEvent({
+        eventType: "login_validation_error",
+        source: "auth",
+        request,
+        pathname: "/api/auth/login",
+        responseStatus: 400,
+        durationMs: Date.now() - startedAt,
+      });
+
       return NextResponse.json(
         { error: "Invalid input", details: error.errors },
         { status: 400 }
@@ -96,6 +159,15 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
+
+    await createVisitorEvent({
+      eventType: "login_error",
+      source: "auth",
+      request,
+      pathname: "/api/auth/login",
+      responseStatus: 500,
+      durationMs: Date.now() - startedAt,
+    });
 
     return NextResponse.json({ error: "Login failed" }, { status: 500 });
   }

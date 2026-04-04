@@ -4,6 +4,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { BackToTop } from "@/components/back-to-top";
 import { SearchDialog } from "@/components/search-dialog";
 import { CodeTheme } from "@/components/code-theme";
+import { VisitorTracker } from "@/components/visitor-tracker";
 import { getConfiguredAppOrigin } from "@/lib/runtime-config";
 import "./globals.css";
 
@@ -89,6 +90,7 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
+          <VisitorTracker />
           {children}
           <SearchDialog />
           <BackToTop />

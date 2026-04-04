@@ -48,6 +48,10 @@ export default async function AdminLayout({
     redirect("/admin?denied=users");
   }
 
+  if (pathname.startsWith("/admin/visitors") && session.user.role !== "admin") {
+    redirect("/admin?denied=visitors");
+  }
+
   // ── MFA enforcement ──────────────────────────────────────────────
   if (
     session.user.mfaRequired &&

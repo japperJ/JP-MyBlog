@@ -30,6 +30,7 @@ model User {
   
   posts         Post[]
   sessions      Session[]
+  visitorEvents VisitorEvent[]
 
   @@map("users")
 }
@@ -42,9 +43,52 @@ model Session {
   createdAt DateTime @default(now())
   
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  visitorEvents VisitorEvent[]
 
   @@index([userId])
   @@map("sessions")
+}
+
+model VisitorEvent {
+  id              String    @id @default(cuid())
+  eventType       String
+  source          String
+  pathname        String
+  fullUrl         String?
+  queryString     String?
+  method          String?
+  referrer        String?
+  ipAddress       String?
+  userAgent       String?
+  browser         String?
+  operatingSystem String?
+  deviceType      String?
+  country         String?
+  region          String?
+  city            String?
+  provider        String?
+  visitorId       String?
+  authenticated   Boolean   @default(false)
+  isBot           Boolean   @default(false)
+  responseStatus  Int?
+  durationMs      Int?
+  metadata        Json?
+  deploymentEnv   String
+  occurredAt      DateTime  @default(now())
+  userId          String?
+  sessionId       String?
+
+  user            User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  session         Session?  @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+
+  @@index([occurredAt])
+  @@index([eventType, occurredAt])
+  @@index([source, occurredAt])
+  @@index([pathname, occurredAt])
+  @@index([visitorId, occurredAt])
+  @@index([userId, occurredAt])
+  @@index([ipAddress, occurredAt])
+  @@map("visitor_events")
 }
 
 model Post {

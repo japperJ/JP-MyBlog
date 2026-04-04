@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth';
 import { hashPassword } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { createVisitorEvent } from '@/lib/visitor-events';
 import { z } from 'zod';
 
 const createUserSchema = z.object({
@@ -12,9 +13,9 @@ const createUserSchema = z.object({
 });
 
 // GET - List all users
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    await requireAdmin();
+    const currentUser = await requireAdmin();
 
     const users = await prisma.user.findMany({
       select: {
@@ -28,6 +29,19 @@ export async function GET() {
       },
       orderBy: {
         createdAt: 'desc',
+      },
+    });
+
+    await createVisitorEvent({
+      eventType: 'admin_users_list',
+      source: 'admin',
+      request,
+      pathname: '/api/admin/users',
+      responseStatus: 200,
+      userId: currentUser.id,
+      authenticated: true,
+      metadata: {
+        resultCount: users.length,
       },
     });
 
@@ -46,8 +60,9 @@ export async function GET() {
 
 // POST - Create new user
 export async function POST(request: NextRequest) {
+  const startedAt = Date.now();
   try {
-    await requireAdmin();
+    const currentUser = await requireAdmin();
 
     const body = await request.json();
     const { email, name, password, role } = createUserSchema.parse(body);
@@ -58,6 +73,18 @@ export async function POST(request: NextRequest) {
     });
 
     if (existingUser) {
+      await createVisitorEvent({
+        eventType: 'admin_user_create_conflict',
+        source: 'admin',
+        request,
+        pathname: '/api/admin/users',
+        responseStatus: 400,
+        durationMs: Date.now() - startedAt,
+        userId: currentUser.id,
+        authenticated: true,
+        metadata: { email, role },
+      });
+
       return NextResponse.json(
         { error: 'User with this email already exists' },
         { status: 400 }
@@ -85,6 +112,22 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    await createVisitorEvent({
+      eventType: 'admin_user_create',
+      source: 'admin',
+      request,
+      pathname: '/api/admin/users',
+      responseStatus: 201,
+      durationMs: Date.now() - startedAt,
+      userId: currentUser.id,
+      authenticated: true,
+      metadata: {
+        targetUserId: user.id,
+        targetEmail: user.email,
+        targetRole: user.role,
+      },
+    });
+
     return NextResponse.json({ user }, { status: 201 });
   } catch (error) {
     console.error('Create user error:', error);
@@ -94,11 +137,29 @@ export async function POST(request: NextRequest) {
     }
 
     if (error instanceof z.ZodError) {
+      await createVisitorEvent({
+        eventType: 'admin_user_create_validation_error',
+        source: 'admin',
+        request,
+        pathname: '/api/admin/users',
+        responseStatus: 400,
+        durationMs: Date.now() - startedAt,
+      });
+
       return NextResponse.json(
         { error: 'Invalid input', details: error.errors },
         { status: 400 }
       );
     }
+
+    await createVisitorEvent({
+      eventType: 'admin_user_create_error',
+      source: 'admin',
+      request,
+      pathname: '/api/admin/users',
+      responseStatus: 500,
+      durationMs: Date.now() - startedAt,
+    });
 
     return NextResponse.json(
       { error: 'Failed to create user' },

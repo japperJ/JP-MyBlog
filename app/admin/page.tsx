@@ -3,7 +3,7 @@ import { AdminNavigation } from "@/components/admin-navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { FileText, FolderOpen, Tag, Eye } from "lucide-react";
+import { FileText, FolderOpen, Tag, Eye, Activity } from "lucide-react";
 
 export default async function AdminDashboard() {
   const [postCount, categoryCount, tagCount, totalViews] = await Promise.all([
@@ -196,6 +196,21 @@ export default async function AdminDashboard() {
               <CardContent>
                 <Button asChild variant="outline" className="w-full">
                   <Link href="/admin/media">Manage Media</Link>
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Visitor Logs</CardTitle>
+                <CardDescription>Inspect traffic, identities, and audit events</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button asChild variant="outline" className="w-full">
+                  <Link href="/admin/visitors">
+                    <Activity className="h-4 w-4 mr-2" />
+                    Open Visitor Logs
+                  </Link>
                 </Button>
               </CardContent>
             </Card>

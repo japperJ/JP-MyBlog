@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { createVisitorEvent } from '@/lib/visitor-events';
 import { z } from 'zod';
 
 type RouteContext = {
@@ -16,6 +17,7 @@ export async function PATCH(
   request: NextRequest,
   context: RouteContext
 ) {
+  const startedAt = Date.now();
   try {
     const currentUser = await requireAdmin();
     const { id } = await context.params;
@@ -25,6 +27,18 @@ export async function PATCH(
     if (action === 'disable-mfa') {
       // Admins cannot disable their own MFA via this route — use /api/auth/mfa/disable
       if (currentUser.id === id) {
+        await createVisitorEvent({
+          eventType: 'admin_user_mfa_disable_denied',
+          source: 'admin',
+          request,
+          pathname: `/api/admin/users/${id}`,
+          responseStatus: 400,
+          durationMs: Date.now() - startedAt,
+          userId: currentUser.id,
+          authenticated: true,
+          metadata: { action, targetUserId: id },
+        });
+
         return NextResponse.json(
           { error: 'Use the Security Settings page to disable your own MFA.' },
           { status: 400 }
@@ -44,6 +58,18 @@ export async function PATCH(
       // Invalidate all sessions for the target user so they must log in again
       await prisma.session.deleteMany({ where: { userId: id } });
 
+      await createVisitorEvent({
+        eventType: 'admin_user_mfa_disabled',
+        source: 'admin',
+        request,
+        pathname: `/api/admin/users/${id}`,
+        responseStatus: 200,
+        durationMs: Date.now() - startedAt,
+        userId: currentUser.id,
+        authenticated: true,
+        metadata: { action, targetUserId: id },
+      });
+
       return NextResponse.json({ success: true, message: 'MFA disabled for user.' });
     }
 
@@ -52,6 +78,19 @@ export async function PATCH(
         where: { id },
         data: { mfaRequired: true },
       });
+
+      await createVisitorEvent({
+        eventType: 'admin_user_mfa_required',
+        source: 'admin',
+        request,
+        pathname: `/api/admin/users/${id}`,
+        responseStatus: 200,
+        durationMs: Date.now() - startedAt,
+        userId: currentUser.id,
+        authenticated: true,
+        metadata: { action, targetUserId: id },
+      });
+
       return NextResponse.json({ success: true, message: 'MFA is now required for this user.' });
     }
 
@@ -60,6 +99,19 @@ export async function PATCH(
         where: { id },
         data: { mfaRequired: false },
       });
+
+      await createVisitorEvent({
+        eventType: 'admin_user_mfa_unrequired',
+        source: 'admin',
+        request,
+        pathname: `/api/admin/users/${id}`,
+        responseStatus: 200,
+        durationMs: Date.now() - startedAt,
+        userId: currentUser.id,
+        authenticated: true,
+        metadata: { action, targetUserId: id },
+      });
+
       return NextResponse.json({ success: true, message: 'MFA requirement removed.' });
     }
   } catch (error) {
@@ -70,6 +122,16 @@ export async function PATCH(
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
     }
+
+    await createVisitorEvent({
+      eventType: 'admin_user_patch_error',
+      source: 'admin',
+      request,
+      pathname: '/api/admin/users/[id]',
+      responseStatus: 500,
+      durationMs: Date.now() - startedAt,
+    });
+
     return NextResponse.json({ error: 'Action failed' }, { status: 500 });
   }
 }
@@ -79,12 +141,25 @@ export async function DELETE(
   request: NextRequest,
   context: RouteContext
 ) {
+  const startedAt = Date.now();
   try {
     const currentUser = await requireAdmin();
     const { id } = await context.params;
 
     // Prevent deleting yourself
     if (currentUser.id === id) {
+      await createVisitorEvent({
+        eventType: 'admin_user_delete_denied',
+        source: 'admin',
+        request,
+        pathname: `/api/admin/users/${id}`,
+        responseStatus: 400,
+        durationMs: Date.now() - startedAt,
+        userId: currentUser.id,
+        authenticated: true,
+        metadata: { targetUserId: id },
+      });
+
       return NextResponse.json(
         { error: 'You cannot delete your own account' },
         { status: 400 }
@@ -94,6 +169,18 @@ export async function DELETE(
     // Delete user
     await prisma.user.delete({
       where: { id },
+    });
+
+    await createVisitorEvent({
+      eventType: 'admin_user_delete',
+      source: 'admin',
+      request,
+      pathname: `/api/admin/users/${id}`,
+      responseStatus: 200,
+      durationMs: Date.now() - startedAt,
+      userId: currentUser.id,
+      authenticated: true,
+      metadata: { targetUserId: id },
     });
 
     return NextResponse.json({
@@ -106,6 +193,15 @@ export async function DELETE(
     if (error instanceof Error && error.message === 'Unauthorized') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    await createVisitorEvent({
+      eventType: 'admin_user_delete_error',
+      source: 'admin',
+      request,
+      pathname: '/api/admin/users/[id]',
+      responseStatus: 500,
+      durationMs: Date.now() - startedAt,
+    });
 
     return NextResponse.json(
       { error: 'Failed to delete user' },

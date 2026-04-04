@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { prisma } from "./prisma";
 
 export interface Session {
+  id: string;
   user: {
     id: string;
     email: string;
@@ -61,6 +62,7 @@ export async function getSession(): Promise<Session | null> {
   }
 
   return {
+    id: session.id,
     user: session.user,
   };
 }
