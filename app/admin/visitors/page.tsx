@@ -41,6 +41,28 @@ function formatMetadata(metadata: unknown): string {
   }
 }
 
+function getVisitorsPageErrorMessage(error: unknown): string {
+  if (!(error instanceof Error)) {
+    return "Visitor data is temporarily unavailable. Please try again in a moment.";
+  }
+
+  const message = error.message;
+
+  if (message.includes("Can't reach database server")) {
+    return "Visitor data is temporarily unavailable because the database is unreachable. Please verify DATABASE_URL and try again.";
+  }
+
+  if (
+    message.includes("visitor_events") ||
+    message.includes("visitorEvent") ||
+    message.includes("does not exist")
+  ) {
+    return "Visitor tracking schema is not available yet. Run a schema update (for example `prisma db push`) and refresh this page.";
+  }
+
+  return "Visitor data is temporarily unavailable due to a server-side query error. Please check logs and try again.";
+}
+
 export default async function VisitorsPage({ searchParams }: Props) {
   const {
     page: pageParam,
@@ -67,48 +89,101 @@ export default async function VisitorsPage({ searchParams }: Props) {
     ...(bot === "human" ? { isBot: false } : {}),
   };
 
-  const [
-    totalEvents,
-    totalPageViews,
-    totalAuthenticatedEvents,
-    totalBotEvents,
-    uniqueVisitors,
-  ] = await Promise.all([
-    prisma.visitorEvent.count({ where }),
-    prisma.visitorEvent.count({ where: { ...where, eventType: "page_view" } }),
-    prisma.visitorEvent.count({ where: { ...where, authenticated: true } }),
-    prisma.visitorEvent.count({ where: { ...where, isBot: true } }),
-    prisma.visitorEvent.findMany({
-      where: {
-        ...where,
-        visitorId: { not: null },
-      },
-      distinct: ["visitorId"],
-      select: { visitorId: true },
-    }),
-  ]);
+  let totalEvents = 0;
+  let totalPageViews = 0;
+  let totalAuthenticatedEvents = 0;
+  let totalBotEvents = 0;
+  let uniqueVisitors: Array<{ visitorId: string | null }> = [];
+  let events: Array<{
+    id: string;
+    eventType: string;
+    source: string;
+    pathname: string;
+    queryString: string | null;
+    visitorId: string | null;
+    method: string | null;
+    authenticated: boolean;
+    isBot: boolean;
+    responseStatus: number | null;
+    occurredAt: Date;
+    ipAddress: string | null;
+    city: string | null;
+    region: string | null;
+    country: string | null;
+    browser: string | null;
+    operatingSystem: string | null;
+    deviceType: string | null;
+    userAgent: string | null;
+    metadata: unknown;
+    user: {
+      id: string;
+      email: string;
+      name: string | null;
+      role: string;
+    } | null;
+  }> = [];
+  let dataErrorMessage: string | null = null;
+
+  try {
+    [
+      totalEvents,
+      totalPageViews,
+      totalAuthenticatedEvents,
+      totalBotEvents,
+      uniqueVisitors,
+    ] = await Promise.all([
+      prisma.visitorEvent.count({ where }),
+      prisma.visitorEvent.count({ where: { ...where, eventType: "page_view" } }),
+      prisma.visitorEvent.count({ where: { ...where, authenticated: true } }),
+      prisma.visitorEvent.count({ where: { ...where, isBot: true } }),
+      prisma.visitorEvent.findMany({
+        where: {
+          ...where,
+          visitorId: { not: null },
+        },
+        distinct: ["visitorId"],
+        select: { visitorId: true },
+      }),
+    ]);
+  } catch (error) {
+    dataErrorMessage = getVisitorsPageErrorMessage(error);
+    console.error("Visitors dashboard aggregate query failed", {
+      route: "/admin/visitors",
+      error: error instanceof Error ? { message: error.message, stack: error.stack } : error,
+    });
+  }
 
   const totalPages = Math.max(1, Math.ceil(totalEvents / PAGE_SIZE));
   const currentPage = Math.min(requestedPage, totalPages);
 
-  const events = await prisma.visitorEvent.findMany({
-    where,
-    include: {
-      user: {
-        select: {
-          id: true,
-          email: true,
-          name: true,
-          role: true,
+  if (!dataErrorMessage) {
+    try {
+      events = await prisma.visitorEvent.findMany({
+        where,
+        include: {
+          user: {
+            select: {
+              id: true,
+              email: true,
+              name: true,
+              role: true,
+            },
+          },
         },
-      },
-    },
-    orderBy: {
-      occurredAt: "desc",
-    },
-    skip: (currentPage - 1) * PAGE_SIZE,
-    take: PAGE_SIZE,
-  });
+        orderBy: {
+          occurredAt: "desc",
+        },
+        skip: (currentPage - 1) * PAGE_SIZE,
+        take: PAGE_SIZE,
+      });
+    } catch (error) {
+      dataErrorMessage = getVisitorsPageErrorMessage(error);
+      console.error("Visitors dashboard events query failed", {
+        route: "/admin/visitors",
+        error: error instanceof Error ? { message: error.message, stack: error.stack } : error,
+      });
+    }
+  }
 
   const paginationParams: Record<string, string> = {};
   if (eventType) paginationParams.eventType = eventType;
@@ -265,6 +340,12 @@ export default async function VisitorsPage({ searchParams }: Props) {
               </CardDescription>
             </CardHeader>
             <CardContent>
+              {dataErrorMessage ? (
+                <div className="mb-4 rounded-md border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-700 dark:text-amber-300">
+                  {dataErrorMessage}
+                </div>
+              ) : null}
+
               {events.length === 0 ? (
                 <p className="text-muted-foreground">No events recorded yet.</p>
               ) : (
