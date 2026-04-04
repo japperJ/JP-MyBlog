@@ -55,13 +55,24 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export async function generateStaticParams() {
-  const categories = await prisma.category.findMany({
-    select: { slug: true },
-  });
+  try {
+    const categories = await prisma.category.findMany({
+      select: { slug: true },
+    });
 
-  return categories.map((category) => ({
-    slug: category.slug,
-  }));
+    return categories.map((category) => ({
+      slug: category.slug,
+    }));
+  } catch (error) {
+    console.error(
+      "generateStaticParams failed for /blog/category/[slug]; falling back to on-demand rendering",
+      {
+        route: "/blog/category/[slug]",
+        error: error instanceof Error ? { message: error.message } : error,
+      }
+    );
+    return [];
+  }
 }
 
 export default async function CategoryPage({ params }: Props) {

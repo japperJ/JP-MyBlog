@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
+import { Suspense } from "react";
 import { ThemeProvider } from "@/components/theme-provider";
 import { BackToTop } from "@/components/back-to-top";
 import { SearchDialog } from "@/components/search-dialog";
@@ -90,7 +91,9 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <VisitorTracker />
+          <Suspense fallback={null}>
+            <VisitorTracker />
+          </Suspense>
           {children}
           <SearchDialog />
           <BackToTop />

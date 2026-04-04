@@ -95,14 +95,22 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export async function generateStaticParams() {
-  const posts = await prisma.post.findMany({
-    where: { published: true },
-    select: { slug: true },
-  });
+  try {
+    const posts = await prisma.post.findMany({
+      where: { published: true },
+      select: { slug: true },
+    });
 
-  return posts.map((post) => ({
-    slug: post.slug,
-  }));
+    return posts.map((post) => ({
+      slug: post.slug,
+    }));
+  } catch (error) {
+    console.error("generateStaticParams failed for /blog/[slug]; falling back to on-demand rendering", {
+      route: "/blog/[slug]",
+      error: error instanceof Error ? { message: error.message } : error,
+    });
+    return [];
+  }
 }
 
 export default async function PostPage({ params }: Props) {

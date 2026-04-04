@@ -9,6 +9,12 @@ import { ArrowRight } from "lucide-react";
 /** Re-validate the homepage so featured / latest posts stay current. */
 export const revalidate = 60;
 
+/**
+ * Avoid build-time database hard dependency in hosted environments.
+ * This page still uses ISR semantics via revalidate, but renders on-demand.
+ */
+export const dynamic = "force-dynamic";
+
 export default async function HomePage() {
   const [featuredPosts, latestPosts] = await Promise.all([
     prisma.post.findMany({

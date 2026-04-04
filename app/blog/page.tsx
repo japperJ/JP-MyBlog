@@ -11,6 +11,11 @@ import { CategoryFilter } from "@/components/blog/category-filter";
 /** Re-validate the blog listing so newly published posts appear. */
 export const revalidate = 60;
 
+/**
+ * Render on demand so a transient DB outage at build time does not block deploys.
+ */
+export const dynamic = "force-dynamic";
+
 const PAGE_SIZE = 9;
 
 export const metadata: Metadata = {

@@ -3,23 +3,35 @@ import { MetadataRoute } from "next";
 import { prisma } from "@/lib/prisma";
 import { getPreferredAppOrigin } from "@/lib/runtime-config";
 
+export const dynamic = "force-dynamic";
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [posts, categories, requestHeaders] = await Promise.all([
-    prisma.post.findMany({
-      where: { published: true },
-      select: {
-        slug: true,
-        updatedAt: true,
-      },
-    }),
-    prisma.category.findMany({
-      select: {
-        slug: true,
-        updatedAt: true,
-      },
-    }),
-    headers(),
-  ]);
+  const requestHeaders = await headers();
+  let posts: Array<{ slug: string; updatedAt: Date }> = [];
+  let categories: Array<{ slug: string; updatedAt: Date }> = [];
+
+  try {
+    [posts, categories] = await Promise.all([
+      prisma.post.findMany({
+        where: { published: true },
+        select: {
+          slug: true,
+          updatedAt: true,
+        },
+      }),
+      prisma.category.findMany({
+        select: {
+          slug: true,
+          updatedAt: true,
+        },
+      }),
+    ]);
+  } catch (error) {
+    console.error("Sitemap DB query failed; returning base sitemap entries only", {
+      route: "/sitemap.xml",
+      error: error instanceof Error ? { message: error.message } : error,
+    });
+  }
 
   const baseUrl = getPreferredAppOrigin(requestHeaders);
 

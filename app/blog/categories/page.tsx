@@ -8,6 +8,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 /** Re-validate so new categories and post counts stay current. */
 export const revalidate = 60;
 
+/**
+ * Render on demand so a transient DB outage at build time does not block deploys.
+ */
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Categories",
   description: "Browse blog posts by category — AI, coding, machine learning, and more",
