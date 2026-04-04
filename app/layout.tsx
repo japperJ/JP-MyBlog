@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import { Suspense } from "react";
+import "highlight.js/styles/github-dark.min.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { BackToTop } from "@/components/back-to-top";
 import { SearchDialog } from "@/components/search-dialog";
-import { CodeTheme } from "@/components/code-theme";
 import { VisitorTracker } from "@/components/visitor-tracker";
 import { getConfiguredAppOrigin } from "@/lib/runtime-config";
 import "./globals.css";
@@ -74,11 +74,6 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <link
-          rel="stylesheet"
-          href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css"
-          data-highlight-theme=""
-        />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
@@ -97,7 +92,6 @@ export default function RootLayout({
           {children}
           <SearchDialog />
           <BackToTop />
-          <CodeTheme />
         </ThemeProvider>
       </body>
     </html>

@@ -68,7 +68,7 @@
   }
 }
 
-/* Code highlighting styles — layout only; CDN theme controls colors */
+/* Code highlighting styles — theme colors come from local highlight.js CSS import */
 .hljs {
   @apply p-4 rounded-md overflow-x-auto;
 }

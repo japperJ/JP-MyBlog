@@ -4,6 +4,10 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { getClientIp } from "@/lib/rate-limit";
 import { VISITOR_ID_STORAGE_KEY } from "@/lib/visitor-constants";
+import {
+  ensureVisitorEventsSchema,
+  isVisitorEventsSchemaMissingError,
+} from "@/lib/visitor-schema";
 
 export type VisitorEventSource = "client-beacon" | "auth" | "admin" | "api";
 
@@ -200,36 +204,48 @@ export async function createVisitorEvent(input: VisitorEventInput): Promise<void
     const resolvedSessionId = input.sessionId ?? session?.id ?? null;
     const authenticated = input.authenticated ?? Boolean(resolvedUserId);
 
-    await prisma.visitorEvent.create({
-      data: {
-        eventType: input.eventType,
-        source: input.source,
-        pathname,
-        fullUrl: input.fullUrl ?? requestUrl?.toString() ?? null,
-        queryString: normalizeQueryString(input.queryString ?? requestUrl?.search ?? null),
-        method: input.method ?? request?.method ?? null,
-        referrer: input.referrer ?? headers?.get("referer") ?? null,
-        ipAddress: input.ipAddress ?? (headers ? getClientIp(headers) : null),
-        userAgent,
-        browser: userAgentInfo.browser,
-        operatingSystem: userAgentInfo.operatingSystem,
-        deviceType: userAgentInfo.deviceType,
-        country: geo.country,
-        region: geo.region,
-        city: geo.city,
-        provider: geo.provider,
-        visitorId: input.visitorId ?? null,
-        authenticated,
-        isBot: detectBot(userAgent),
-        responseStatus: input.responseStatus,
-        durationMs: input.durationMs,
-        metadata: input.metadata,
-        deploymentEnv: getDeploymentEnvironment(),
-        occurredAt: input.occurredAt,
-        userId: resolvedUserId,
-        sessionId: resolvedSessionId,
-      },
-    });
+    const data: Prisma.VisitorEventCreateInput = {
+      eventType: input.eventType,
+      source: input.source,
+      pathname,
+      fullUrl: input.fullUrl ?? requestUrl?.toString() ?? null,
+      queryString: normalizeQueryString(input.queryString ?? requestUrl?.search ?? null),
+      method: input.method ?? request?.method ?? null,
+      referrer: input.referrer ?? headers?.get("referer") ?? null,
+      ipAddress: input.ipAddress ?? (headers ? getClientIp(headers) : null),
+      userAgent,
+      browser: userAgentInfo.browser,
+      operatingSystem: userAgentInfo.operatingSystem,
+      deviceType: userAgentInfo.deviceType,
+      country: geo.country,
+      region: geo.region,
+      city: geo.city,
+      provider: geo.provider,
+      visitorId: input.visitorId ?? null,
+      authenticated,
+      isBot: detectBot(userAgent),
+      responseStatus: input.responseStatus,
+      durationMs: input.durationMs,
+      metadata: input.metadata,
+      deploymentEnv: getDeploymentEnvironment(),
+      occurredAt: input.occurredAt,
+      ...(resolvedUserId ? { user: { connect: { id: resolvedUserId } } } : {}),
+      ...(resolvedSessionId ? { session: { connect: { id: resolvedSessionId } } } : {}),
+    };
+
+    try {
+      await prisma.visitorEvent.create({ data });
+    } catch (error) {
+      if (isVisitorEventsSchemaMissingError(error)) {
+        const bootstrapped = await ensureVisitorEventsSchema();
+        if (bootstrapped) {
+          await prisma.visitorEvent.create({ data });
+          return;
+        }
+      }
+
+      throw error;
+    }
   } catch (error) {
     console.error("Visitor event logging failed", {
       eventType: input.eventType,

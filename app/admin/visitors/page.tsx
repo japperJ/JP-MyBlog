@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Eye, Users, Shield, Bot } from "lucide-react";
+import { ensureVisitorEventsSchema } from "@/lib/visitor-schema";
 
 const PAGE_SIZE = 50;
 
@@ -88,6 +89,9 @@ export default async function VisitorsPage({ searchParams }: Props) {
     ...(bot === "bot" ? { isBot: true } : {}),
     ...(bot === "human" ? { isBot: false } : {}),
   };
+
+  // Self-heal missing visitor_events schema when possible.
+  await ensureVisitorEventsSchema();
 
   let totalEvents = 0;
   let totalPageViews = 0;
