@@ -1,13 +1,16 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { Pencil } from "lucide-react";
 import { Navigation } from "@/components/navigation";
 import { PostContent } from "@/components/blog/post-content";
 import { ReadingProgress } from "@/components/blog/reading-progress";
 import { TableOfContents } from "@/components/blog/table-of-contents";
 import { ShareButtons } from "@/components/blog/share-buttons";
+import { Button } from "@/components/ui/button";
+import { AdminEditPanel } from "@/components/blog/admin-edit-panel";
 import { formatDate } from "@/lib/utils";
 import { getPostThumbnailSrc } from "@/lib/post-thumbnail";
 import { Clock, Eye, Calendar } from "lucide-react";
@@ -62,6 +65,10 @@ interface PostPageProps {
   postNavigation?: ReactNode;
   /** Server-rendered related posts section */
   relatedPosts?: ReactNode;
+  /** Whether the current session user is an admin */
+  isAdmin?: boolean;
+  /** Post database ID for the admin edit panel */
+  postId?: string;
 }
 
 export default function PostPage({
@@ -71,6 +78,8 @@ export default function PostPage({
   breadcrumbs,
   postNavigation,
   relatedPosts,
+  isAdmin,
+  postId,
 }: PostPageProps) {
   if (!post) {
     notFound();
@@ -84,6 +93,8 @@ export default function PostPage({
     thumbnailUrl: post.thumbnailUrl,
     category: post.categories[0]?.category.name,
   });
+
+  const [editOpen, setEditOpen] = useState(false);
 
   // Only h2/h3 headings — determines whether to show the two-column TOC layout
   const hasToc = headings.filter((h) => h.level >= 2 && h.level <= 3).length > 0;
@@ -246,6 +257,27 @@ export default function PostPage({
           </div>
         </div>
       </article>
+
+      {/* Admin floating edit button — only shown for admin sessions */}
+      {isAdmin && postId && (
+        <>
+          <div className="fixed bottom-6 right-6 z-50">
+            <Button
+              onClick={() => setEditOpen(true)}
+              size="lg"
+              className="shadow-lg gap-2"
+            >
+              <Pencil className="h-4 w-4" />
+              Edit Post
+            </Button>
+          </div>
+          <AdminEditPanel
+            postId={postId}
+            open={editOpen}
+            onOpenChange={setEditOpen}
+          />
+        </>
+      )}
     </>
   );
 }

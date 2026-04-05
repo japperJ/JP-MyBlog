@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { extractHeadings } from "@/lib/markdown";
 import { getAppUrl, getConfiguredAppOrigin } from "@/lib/runtime-config";
 import { getPostThumbnailUrl } from "@/lib/post-thumbnail";
+import { getSession } from "@/lib/auth";
 
 /**
  * Allow on-demand rendering for slugs not generated at build time.
@@ -199,6 +200,9 @@ export default async function PostPage({ params }: Props) {
       : Promise.resolve(null),
   ]);
 
+  const session = await getSession();
+  const isAdmin = session?.user.role === "admin";
+
   const appOrigin = getConfiguredAppOrigin();
   const postUrl = getAppUrl(`/blog/${slug}`);
   const primaryCategory = post.categories[0]?.category;
@@ -265,6 +269,8 @@ export default async function PostPage({ params }: Props) {
           <PostNavigation prevPost={prevPost} nextPost={nextPost} />
         }
         relatedPosts={<RelatedPosts posts={relatedPosts} />}
+        isAdmin={isAdmin}
+        postId={post.id}
       />
       <Footer />
     </>
