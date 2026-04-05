@@ -10,6 +10,24 @@ import { getDefaultThumbnailUrl } from "@/lib/site-settings";
 export const dynamic = "force-dynamic";
 
 async function getExistingUploads() {
+  if (process.env.BLOB_READ_WRITE_TOKEN) {
+    try {
+      const { list } = await import("@vercel/blob");
+      const { blobs } = await list({ prefix: "uploads/" });
+      return blobs
+        .map((blob) => ({
+          url: blob.url,
+          filename: blob.pathname.replace(/^\/uploads\//, ""),
+          size: blob.size,
+          uploadedAt: blob.uploadedAt.toISOString(),
+        }))
+        .sort((a, b) => b.uploadedAt.localeCompare(a.uploadedAt));
+    } catch {
+      return [];
+    }
+  }
+
+  // Local filesystem fallback
   const uploadsDir = path.join(process.cwd(), "public", "uploads");
   if (!existsSync(uploadsDir)) return [];
   const IMAGE_EXTS = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp"]);

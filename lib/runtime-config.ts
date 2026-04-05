@@ -67,8 +67,9 @@ export function isVercelHostedEnvironment(): boolean {
 }
 
 export function areFilesystemUploadsDisabled(): boolean {
-  if (process.env.ALLOW_FILESYSTEM_UPLOADS === "true") {
-    return false;
-  }
   return isVercelHostedEnvironment();
+}
+
+export function isBlobStorageConfigured(): boolean {
+  return Boolean(process.env.BLOB_READ_WRITE_TOKEN);
 }

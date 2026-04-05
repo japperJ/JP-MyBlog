@@ -3,7 +3,7 @@ import { mkdir, writeFile } from "fs/promises";
 import path from "path";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
-import { areFilesystemUploadsDisabled } from "@/lib/runtime-config";
+import { isBlobStorageConfigured } from "@/lib/runtime-config";
 
 const MAGIC_SIGNATURES: Record<string, { offset: number; bytes: number[] }[]> = {
   "image/jpeg": [{ offset: 0, bytes: [0xff, 0xd8, 0xff] }],
@@ -29,16 +29,6 @@ function hasMagicBytes(buffer: Buffer, mimeType: string): boolean {
 export async function POST(request: NextRequest) {
   try {
     await requireAuth();
-
-    if (areFilesystemUploadsDisabled()) {
-      return NextResponse.json(
-        {
-          error:
-            "Uploads are disabled on Vercel-hosted deployments. Use an HTTPS image URL in the editor instead.",
-        },
-        { status: 501 }
-      );
-    }
 
     const formData = await request.formData();
     const file = formData.get("file");
@@ -76,6 +66,18 @@ export async function POST(request: NextRequest) {
     const timestamp = Date.now();
     const safeName = path.basename(file.name).replace(/[^a-zA-Z0-9._-]/g, "-");
     const filename = `${timestamp}-${safeName}`;
+
+    // Vercel Blob path
+    if (isBlobStorageConfigured()) {
+      const { put } = await import("@vercel/blob");
+      const blob = await put(`uploads/${filename}`, buffer, {
+        access: "public",
+        contentType: file.type,
+      });
+      return NextResponse.json({ url: blob.url }, { status: 201 });
+    }
+
+    // Local filesystem fallback
     const uploadsDir = path.join(process.cwd(), "public", "uploads");
 
     if (!existsSync(uploadsDir)) {
