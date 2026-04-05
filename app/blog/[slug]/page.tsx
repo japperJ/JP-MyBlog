@@ -8,6 +8,7 @@ import { Footer } from "@/components/footer";
 import { prisma } from "@/lib/prisma";
 import { extractHeadings } from "@/lib/markdown";
 import { getAppUrl, getConfiguredAppOrigin } from "@/lib/runtime-config";
+import { getPostThumbnailUrl } from "@/lib/post-thumbnail";
 
 /**
  * Allow on-demand rendering for slugs not generated at build time.
@@ -53,18 +54,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   const appOrigin = getConfiguredAppOrigin();
   const categoryName = post.categories[0]?.category.name;
-  const ogImageUrl = new URL(getAppUrl("/api/og"));
-  ogImageUrl.searchParams.set("title", post.title);
-  if (post.excerpt) {
-    ogImageUrl.searchParams.set("excerpt", post.excerpt);
-  }
-  if (categoryName) {
-    ogImageUrl.searchParams.set("category", categoryName);
-  }
 
-  const socialImageUrl = post.coverImage
-    ? new URL(post.coverImage, appOrigin).toString()
-    : ogImageUrl.toString();
+  const socialImageUrl = getPostThumbnailUrl(
+    {
+      title: post.title,
+      excerpt: post.excerpt,
+      coverImage: post.coverImage,
+      category: categoryName,
+    },
+    appOrigin
+  );
   const canonicalUrl = getAppUrl(`/blog/${slug}`);
 
   return {
@@ -202,9 +201,15 @@ export default async function PostPage({ params }: Props) {
   const primaryCategory = post.categories[0]?.category;
   const headings = extractHeadings(post.content);
 
-  const imageUrl = post.coverImage
-    ? new URL(post.coverImage, appOrigin).toString()
-    : undefined;
+  const imageUrl = getPostThumbnailUrl(
+    {
+      title: post.title,
+      excerpt: post.excerpt,
+      coverImage: post.coverImage,
+      category: primaryCategory?.name,
+    },
+    appOrigin
+  );
 
   const blogPostingJsonLd = {
     "@context": "https://schema.org",

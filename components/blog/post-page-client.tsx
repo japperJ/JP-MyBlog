@@ -9,6 +9,7 @@ import { ReadingProgress } from "@/components/blog/reading-progress";
 import { TableOfContents } from "@/components/blog/table-of-contents";
 import { ShareButtons } from "@/components/blog/share-buttons";
 import { formatDate } from "@/lib/utils";
+import { getPostThumbnailSrc } from "@/lib/post-thumbnail";
 import { Clock, Eye, Calendar } from "lucide-react";
 import { notFound } from "next/navigation";
 
@@ -70,11 +71,17 @@ export default function PostPage({
   postNavigation,
   relatedPosts,
 }: PostPageProps) {
-  const articleRef = useRef<HTMLElement>(null);
-
   if (!post) {
     notFound();
   }
+
+  const articleRef = useRef<HTMLElement>(null);
+  const thumbnailSrc = getPostThumbnailSrc({
+    title: post.title,
+    excerpt: post.excerpt,
+    coverImage: post.coverImage,
+    category: post.categories[0]?.category.name,
+  });
 
   // Only h2/h3 headings — determines whether to show the two-column TOC layout
   const hasToc = headings.filter((h) => h.level >= 2 && h.level <= 3).length > 0;
@@ -85,18 +92,16 @@ export default function PostPage({
       <ReadingProgress target={articleRef} />
       <article ref={articleRef} className="min-h-screen">
         {/* Cover Image — full width, outside grid */}
-        {post.coverImage && (
-          <div className="relative w-full h-96 overflow-hidden">
-            <Image
-              src={post.coverImage}
-              alt={post.title}
-              fill
-              priority
-              sizes="100vw"
-              className="object-cover"
-            />
-          </div>
-        )}
+        <div className="relative w-full h-96 overflow-hidden">
+          <Image
+            src={thumbnailSrc}
+            alt={post.title}
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover"
+          />
+        </div>
 
         <div className="container mx-auto px-4 py-12">
           {/* Header area — max-w-4xl, visually unchanged */}

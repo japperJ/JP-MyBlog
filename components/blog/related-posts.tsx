@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { formatDate } from "@/lib/utils";
+import { getPostThumbnailSrc } from "@/lib/post-thumbnail";
 
 interface RelatedPost {
   title: string;
@@ -27,17 +28,19 @@ export function RelatedPosts({ posts }: RelatedPostsProps) {
             href={`/blog/${post.slug}`}
             className="group block rounded-lg border bg-card hover:shadow-lg transition-shadow overflow-hidden"
           >
-            {post.coverImage && (
-              <div className="relative w-full h-36 overflow-hidden">
-                <Image
-                  src={post.coverImage}
-                  alt={post.title}
-                  fill
-                  sizes="(max-width: 768px) 100vw, 33vw"
-                  className="object-cover group-hover:scale-105 transition-transform duration-300"
-                />
-              </div>
-            )}
+            <div className="relative w-full h-36 overflow-hidden">
+              <Image
+                src={getPostThumbnailSrc({
+                  title: post.title,
+                  excerpt: post.excerpt,
+                  coverImage: post.coverImage,
+                })}
+                alt={post.title}
+                fill
+                sizes="(max-width: 768px) 100vw, 33vw"
+                className="object-cover group-hover:scale-105 transition-transform duration-300"
+              />
+            </div>
             <div className="p-4">
               <h3 className="font-semibold line-clamp-2 group-hover:text-primary transition-colors">
                 {post.title}

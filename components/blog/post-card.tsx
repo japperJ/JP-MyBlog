@@ -4,6 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { formatDate } from "@/lib/utils";
+import { getPostThumbnailSrc } from "@/lib/post-thumbnail";
 import { Clock, Eye } from "lucide-react";
 
 interface PostCardProps {
@@ -29,20 +30,25 @@ interface PostCardProps {
 }
 
 export function PostCard({ post }: PostCardProps) {
+  const thumbnailSrc = getPostThumbnailSrc({
+    title: post.title,
+    excerpt: post.excerpt,
+    coverImage: post.coverImage,
+    category: post.categories[0]?.category.name,
+  });
+
   return (
     <Link href={`/blog/${post.slug}`}>
       <Card className="hover:shadow-lg transition-shadow h-full flex flex-col">
-        {post.coverImage && (
-          <div className="relative w-full h-48 overflow-hidden rounded-t-lg">
-            <Image
-              src={post.coverImage}
-              alt={post.title}
-              fill
-              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-              className="object-cover hover:scale-105 transition-transform duration-300"
-            />
-          </div>
-        )}
+        <div className="relative w-full h-48 overflow-hidden rounded-t-lg">
+          <Image
+            src={thumbnailSrc}
+            alt={post.title}
+            fill
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            className="object-cover hover:scale-105 transition-transform duration-300"
+          />
+        </div>
         <CardHeader>
           <div className="flex flex-wrap gap-2 mb-2">
             {post.categories.slice(0, 2).map(({ category }) => (
