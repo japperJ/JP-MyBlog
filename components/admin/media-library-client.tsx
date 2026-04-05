@@ -10,6 +10,7 @@ import {
   clearDefaultThumbnailAction,
   updateDefaultThumbnailAction,
 } from "@/app/actions/site-settings";
+import { deleteUploadedImageAction } from "@/app/actions/upload";
 
 function normalizeUrl(url: string | null): string | null {
   if (!url) return null;
@@ -42,6 +43,7 @@ export function MediaLibraryClient({ initialDefaultThumbnailUrl, initialImages =
     initialDefaultThumbnailUrl
   );
   const [savingDefaultThumbnail, setSavingDefaultThumbnail] = useState<string | null>(null);
+  const [deletingImage, setDeletingImage] = useState<string | null>(null);
 
   useEffect(() => {
     setImages(initialImages);
@@ -125,7 +127,6 @@ export function MediaLibraryClient({ initialDefaultThumbnailUrl, initialImages =
     try {
       const savedUrl = await updateDefaultThumbnailAction(url);
       setDefaultThumbnailUrl(savedUrl);
-      router.refresh();
       alert("Default thumbnail image updated.");
     } catch (error) {
       console.error("Failed to set default thumbnail", {
@@ -135,6 +136,25 @@ export function MediaLibraryClient({ initialDefaultThumbnailUrl, initialImages =
       alert(error instanceof Error ? error.message : "Failed to update default thumbnail.");
     } finally {
       setSavingDefaultThumbnail(null);
+    }
+  };
+
+  const deleteImage = async (url: string) => {
+    if (!confirm("Delete this image? This cannot be undone.")) return;
+
+    setDeletingImage(url);
+    try {
+      await deleteUploadedImageAction(url);
+      setImages((current) => current.filter((img) => img.url !== url));
+      // If this was the default thumbnail, clear the local default state too
+      if (normalizeUrl(defaultThumbnailUrl) === normalizeUrl(url)) {
+        setDefaultThumbnailUrl(null);
+      }
+      router.refresh();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Failed to delete image.");
+    } finally {
+      setDeletingImage(null);
     }
   };
 
@@ -353,6 +373,16 @@ export function MediaLibraryClient({ initialDefaultThumbnailUrl, initialImages =
                           <a href={image.url} target="_blank" rel="noopener noreferrer">
                             View
                           </a>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => deleteImage(image.url)}
+                          disabled={deletingImage === image.url}
+                        >
+                          <Trash2 className="h-3 w-3 mr-1" />
+                          {deletingImage === image.url ? "Deleting..." : "Delete"}
                         </Button>
                       </div>
                       <Button
