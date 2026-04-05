@@ -6,6 +6,7 @@ import { requireAuth } from "@/lib/auth";
 import { slugify } from "@/lib/utils";
 import { calculateReadingTime } from "@/lib/markdown";
 import { revalidatePath } from "next/cache";
+import { getDefaultThumbnailUrl } from "@/lib/site-settings";
 
 const coverImageSchema = z
   .string()
@@ -138,6 +139,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const snapshotThumbnailUrl = data.coverImage ? null : await getDefaultThumbnailUrl();
+
     const post = await prisma.post.create({
       data: {
         title: data.title,
@@ -145,6 +148,7 @@ export async function POST(request: NextRequest) {
         content: data.content,
         excerpt: data.excerpt,
         coverImage: data.coverImage,
+        thumbnailUrl: snapshotThumbnailUrl,
         published: data.published,
         featured: data.featured,
         readingTime,

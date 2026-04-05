@@ -6,7 +6,6 @@ import { PostCard } from "@/components/blog/post-card";
 import { Breadcrumbs } from "@/components/blog/breadcrumbs";
 import { notFound } from "next/navigation";
 import { getAppUrl } from "@/lib/runtime-config";
-import { getDefaultThumbnailUrl } from "@/lib/site-settings";
 
 /** Allow on-demand rendering for categories created after the build. */
 export const dynamicParams = true;
@@ -87,7 +86,7 @@ export default async function CategoryPage({ params }: Props) {
     notFound();
   }
 
-  const [posts, defaultThumbnailUrl] = await Promise.all([
+  const [posts] = await Promise.all([
     prisma.post.findMany({
     where: {
       published: true,
@@ -115,7 +114,6 @@ export default async function CategoryPage({ params }: Props) {
       publishedAt: "desc",
     },
     }),
-    getDefaultThumbnailUrl(),
   ]);
 
   return (
@@ -150,7 +148,7 @@ export default async function CategoryPage({ params }: Props) {
           ) : (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
               {posts.map((post) => (
-                <PostCard key={post.id} post={post} defaultThumbnailUrl={defaultThumbnailUrl} />
+                <PostCard key={post.id} post={post} />
               ))}
             </div>
           )}

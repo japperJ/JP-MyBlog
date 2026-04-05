@@ -5,7 +5,6 @@ import { Footer } from "@/components/footer";
 import { PostCard } from "@/components/blog/post-card";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
-import { getDefaultThumbnailUrl } from "@/lib/site-settings";
 
 /** Re-validate the homepage so featured / latest posts stay current. */
 export const revalidate = 60;
@@ -17,7 +16,7 @@ export const revalidate = 60;
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const [featuredPosts, latestPosts, defaultThumbnailUrl] = await Promise.all([
+  const [featuredPosts, latestPosts] = await Promise.all([
     prisma.post.findMany({
       where: {
         published: true,
@@ -61,7 +60,6 @@ export default async function HomePage() {
       },
       take: 6,
     }),
-    getDefaultThumbnailUrl(),
   ]);
 
   return (
@@ -97,7 +95,7 @@ export default async function HomePage() {
             <h2 className="text-3xl font-bold mb-8">Featured Articles</h2>
             <div className="grid md:grid-cols-3 gap-6">
               {featuredPosts.map((post) => (
-                <PostCard key={post.id} post={post} defaultThumbnailUrl={defaultThumbnailUrl} />
+                <PostCard key={post.id} post={post} />
               ))}
             </div>
           </section>
@@ -114,7 +112,7 @@ export default async function HomePage() {
             </div>
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
               {latestPosts.map((post) => (
-                <PostCard key={post.id} post={post} defaultThumbnailUrl={defaultThumbnailUrl} />
+                <PostCard key={post.id} post={post} />
               ))}
             </div>
           </div>

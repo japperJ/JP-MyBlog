@@ -14,6 +14,7 @@ interface PostCardProps {
     slug: string;
     excerpt?: string | null;
     coverImage?: string | null;
+    thumbnailUrl?: string | null;
     publishedAt?: Date | null;
     readingTime: number;
     views: number;
@@ -27,16 +28,16 @@ interface PostCardProps {
       };
     }>;
   };
-  defaultThumbnailUrl?: string | null;
 }
 
-export function PostCard({ post, defaultThumbnailUrl }: PostCardProps) {
+export function PostCard({ post }: PostCardProps) {
   const thumbnailSrc = getPostThumbnailSrc({
     title: post.title,
     excerpt: post.excerpt,
     coverImage: post.coverImage,
+    thumbnailUrl: post.thumbnailUrl,
     category: post.categories[0]?.category.name,
-  }, defaultThumbnailUrl);
+  });
 
   return (
     <Link href={`/blog/${post.slug}`}>

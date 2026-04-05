@@ -8,7 +8,6 @@ import { Footer } from "@/components/footer";
 import { prisma } from "@/lib/prisma";
 import { extractHeadings } from "@/lib/markdown";
 import { getAppUrl, getConfiguredAppOrigin } from "@/lib/runtime-config";
-import { getDefaultThumbnailUrl } from "@/lib/site-settings";
 import { getPostThumbnailUrl } from "@/lib/post-thumbnail";
 
 /**
@@ -33,14 +32,13 @@ type Props = {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
 
-  const defaultThumbnailUrl = await getDefaultThumbnailUrl();
-
   const post = await prisma.post.findUnique({
     where: { slug },
     select: {
       title: true,
       excerpt: true,
       coverImage: true,
+      thumbnailUrl: true,
       categories: {
         include: {
           category: true,
@@ -63,10 +61,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       title: post.title,
       excerpt: post.excerpt,
       coverImage: post.coverImage,
+      thumbnailUrl: post.thumbnailUrl,
       category: categoryName,
     },
-    appOrigin,
-    defaultThumbnailUrl
+    appOrigin
   );
   const canonicalUrl = getAppUrl(`/blog/${slug}`);
 
@@ -119,8 +117,6 @@ export async function generateStaticParams() {
 export default async function PostPage({ params }: Props) {
   const { slug } = await params;
 
-  const defaultThumbnailUrl = await getDefaultThumbnailUrl();
-
   const post = await prisma.post.findUnique({
     where: { slug },
     include: {
@@ -172,6 +168,7 @@ export default async function PostPage({ params }: Props) {
             slug: true,
             excerpt: true,
             coverImage: true,
+            thumbnailUrl: true,
             publishedAt: true,
           },
           orderBy: { publishedAt: "desc" },
@@ -212,10 +209,10 @@ export default async function PostPage({ params }: Props) {
       title: post.title,
       excerpt: post.excerpt,
       coverImage: post.coverImage,
+      thumbnailUrl: post.thumbnailUrl,
       category: primaryCategory?.name,
     },
-    appOrigin,
-    defaultThumbnailUrl
+    appOrigin
   );
 
   const blogPostingJsonLd = {
@@ -267,8 +264,7 @@ export default async function PostPage({ params }: Props) {
         postNavigation={
           <PostNavigation prevPost={prevPost} nextPost={nextPost} />
         }
-        relatedPosts={<RelatedPosts posts={relatedPosts} defaultThumbnailUrl={defaultThumbnailUrl} />}
-        defaultThumbnailUrl={defaultThumbnailUrl}
+        relatedPosts={<RelatedPosts posts={relatedPosts} />}
       />
       <Footer />
     </>

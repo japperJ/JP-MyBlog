@@ -4,6 +4,7 @@ type PostThumbnailInput = {
   title: string;
   excerpt?: string | null;
   coverImage?: string | null;
+  thumbnailUrl?: string | null;
   category?: string | null;
 };
 
@@ -23,17 +24,14 @@ function buildOgThumbnailSrc(post: PostThumbnailInput): string {
   return `/api/og?${searchParams.toString()}`;
 }
 
-export function getPostThumbnailSrc(
-  post: PostThumbnailInput,
-  fallbackSrc?: string | null
-): string {
+export function getPostThumbnailSrc(post: PostThumbnailInput): string {
   const coverImage = post.coverImage?.trim();
 
   if (coverImage) {
     return coverImage;
   }
 
-  const fallback = fallbackSrc?.trim();
+  const fallback = post.thumbnailUrl?.trim();
   if (fallback) {
     return fallback;
   }
@@ -43,15 +41,11 @@ export function getPostThumbnailSrc(
 
 export function getPostThumbnailUrl(
   post: PostThumbnailInput,
-  origin: string,
-  fallbackSrc?: string | null
+  origin: string
 ): string {
-  return new URL(getPostThumbnailSrc(post, fallbackSrc), origin).toString();
+  return new URL(getPostThumbnailSrc(post), origin).toString();
 }
 
-export function getPostThumbnailAppUrl(
-  post: PostThumbnailInput,
-  fallbackSrc?: string | null
-): string {
-  return getAppUrl(getPostThumbnailSrc(post, fallbackSrc));
+export function getPostThumbnailAppUrl(post: PostThumbnailInput): string {
+  return getAppUrl(getPostThumbnailSrc(post));
 }

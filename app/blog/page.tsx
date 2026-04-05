@@ -7,7 +7,6 @@ import { Footer } from "@/components/footer";
 import { PostCard } from "@/components/blog/post-card";
 import { BlogPagination } from "@/components/blog/pagination";
 import { CategoryFilter } from "@/components/blog/category-filter";
-import { getDefaultThumbnailUrl } from "@/lib/site-settings";
 
 /** Re-validate the blog listing so newly published posts appear. */
 export const revalidate = 60;
@@ -55,7 +54,7 @@ export default async function BlogPage({ searchParams }: Props) {
 
   // Fetch count + categories in parallel first, then clamp page before querying posts.
   // This ensures /blog?page=999 returns the actual last page of posts (not empty).
-  const [totalPosts, categories, defaultThumbnailUrl] = await Promise.all([
+  const [totalPosts, categories] = await Promise.all([
     prisma.post.count({ where }),
     // Only fetch categories that have at least one published post
     prisma.category.findMany({
@@ -63,7 +62,6 @@ export default async function BlogPage({ searchParams }: Props) {
       orderBy: { name: "asc" },
       select: { id: true, name: true, slug: true },
     }),
-    getDefaultThumbnailUrl(),
   ]);
 
   const totalPages = Math.ceil(totalPosts / PAGE_SIZE);
@@ -130,7 +128,7 @@ export default async function BlogPage({ searchParams }: Props) {
           ) : (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
               {posts.map((post) => (
-                <PostCard key={post.id} post={post} defaultThumbnailUrl={defaultThumbnailUrl} />
+                <PostCard key={post.id} post={post} />
               ))}
             </div>
           )}

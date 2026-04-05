@@ -106,6 +106,7 @@ model Post {
   excerpt         String?
   content         String
   coverImage      String?
+  thumbnailUrl    String?
   published       Boolean   @default(false)
   featured        Boolean   @default(false)
   views           Int       @default(0)

@@ -8,15 +8,15 @@ interface RelatedPost {
   slug: string;
   excerpt: string | null;
   coverImage: string | null;
+  thumbnailUrl?: string | null;
   publishedAt: Date | null;
 }
 
 interface RelatedPostsProps {
   posts: RelatedPost[];
-  defaultThumbnailUrl?: string | null;
 }
 
-export function RelatedPosts({ posts, defaultThumbnailUrl }: RelatedPostsProps) {
+export function RelatedPosts({ posts }: RelatedPostsProps) {
   if (posts.length === 0) return null;
 
   return (
@@ -35,7 +35,8 @@ export function RelatedPosts({ posts, defaultThumbnailUrl }: RelatedPostsProps) 
                   title: post.title,
                   excerpt: post.excerpt,
                   coverImage: post.coverImage,
-                }, defaultThumbnailUrl)}
+                  thumbnailUrl: post.thumbnailUrl,
+                })}
                 alt={post.title}
                 fill
                 sizes="(max-width: 768px) 100vw, 33vw"
