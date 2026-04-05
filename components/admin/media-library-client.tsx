@@ -20,12 +20,13 @@ interface UploadedImage {
 
 interface MediaLibraryClientProps {
   initialDefaultThumbnailUrl: string | null;
+  initialImages?: UploadedImage[];
 }
 
-export function MediaLibraryClient({ initialDefaultThumbnailUrl }: MediaLibraryClientProps) {
+export function MediaLibraryClient({ initialDefaultThumbnailUrl, initialImages = [] }: MediaLibraryClientProps) {
   const router = useRouter();
   const [uploading, setUploading] = useState(false);
-  const [images, setImages] = useState<UploadedImage[]>([]);
+  const [images, setImages] = useState<UploadedImage[]>(initialImages);
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
   const [defaultThumbnailUrl, setDefaultThumbnailUrl] = useState<string | null>(
     initialDefaultThumbnailUrl
@@ -363,7 +364,7 @@ export function MediaLibraryClient({ initialDefaultThumbnailUrl }: MediaLibraryC
           <CardContent className="py-12">
             <div className="text-center text-muted-foreground">
               <ImageIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>No images uploaded in this session yet.</p>
+              <p>No images found in the uploads folder yet.</p>
             </div>
           </CardContent>
         </Card>
