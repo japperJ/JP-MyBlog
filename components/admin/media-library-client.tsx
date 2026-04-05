@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Copy, Image as ImageIcon, Info, Star, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,16 @@ import {
   clearDefaultThumbnailAction,
   updateDefaultThumbnailAction,
 } from "@/app/actions/site-settings";
+
+function normalizeUrl(url: string | null): string | null {
+  if (!url) return null;
+  try {
+    const u = new URL(url, "http://x");
+    return u.pathname + (u.search || "");
+  } catch {
+    return url;
+  }
+}
 
 interface UploadedImage {
   url: string;
@@ -32,6 +42,14 @@ export function MediaLibraryClient({ initialDefaultThumbnailUrl, initialImages =
     initialDefaultThumbnailUrl
   );
   const [savingDefaultThumbnail, setSavingDefaultThumbnail] = useState<string | null>(null);
+
+  useEffect(() => {
+    setImages(initialImages);
+  }, [initialImages]);
+
+  useEffect(() => {
+    setDefaultThumbnailUrl(initialDefaultThumbnailUrl);
+  }, [initialDefaultThumbnailUrl]);
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
@@ -68,6 +86,7 @@ export function MediaLibraryClient({ initialDefaultThumbnailUrl, initialImages =
       };
 
       setImages((currentImages) => [newImage, ...currentImages]);
+      router.refresh();
       alert(`Image uploaded successfully!\nURL: ${absoluteUrl}`);
     } catch (error) {
       console.error("Error uploading file", {
@@ -276,13 +295,13 @@ export function MediaLibraryClient({ initialDefaultThumbnailUrl, initialImages =
       {images.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Recently Uploaded</CardTitle>
-            <CardDescription>Images uploaded in this browser session</CardDescription>
+            <CardTitle>Uploaded Images</CardTitle>
+            <CardDescription>Images in the uploads folder. Click &quot;Set as default thumbnail&quot; on any image below.</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
               {images.map((image) => {
-                const isCurrentDefault = defaultThumbnailUrl === image.url;
+                const isCurrentDefault = normalizeUrl(defaultThumbnailUrl) === normalizeUrl(image.url);
 
                 return (
                   <div
