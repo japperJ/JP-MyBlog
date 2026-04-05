@@ -6,6 +6,7 @@ import { PostCard } from "@/components/blog/post-card";
 import { Breadcrumbs } from "@/components/blog/breadcrumbs";
 import { notFound } from "next/navigation";
 import { getAppUrl } from "@/lib/runtime-config";
+import { getDefaultThumbnailUrl } from "@/lib/site-settings";
 
 /** Allow on-demand rendering for tags created after the build. */
 export const dynamicParams = true;
@@ -82,7 +83,8 @@ export default async function TagPage({ params }: Props) {
     notFound();
   }
 
-  const posts = await prisma.post.findMany({
+  const [posts, defaultThumbnailUrl] = await Promise.all([
+    prisma.post.findMany({
     where: {
       published: true,
       tags: {
@@ -108,7 +110,9 @@ export default async function TagPage({ params }: Props) {
     orderBy: {
       publishedAt: "desc",
     },
-  });
+    }),
+    getDefaultThumbnailUrl(),
+  ]);
 
   return (
     <>
@@ -139,7 +143,7 @@ export default async function TagPage({ params }: Props) {
           ) : (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
               {posts.map((post) => (
-                <PostCard key={post.id} post={post} />
+                <PostCard key={post.id} post={post} defaultThumbnailUrl={defaultThumbnailUrl} />
               ))}
             </div>
           )}

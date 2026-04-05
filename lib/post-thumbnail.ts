@@ -7,13 +7,7 @@ type PostThumbnailInput = {
   category?: string | null;
 };
 
-export function getPostThumbnailSrc(post: PostThumbnailInput): string {
-  const coverImage = post.coverImage?.trim();
-
-  if (coverImage) {
-    return coverImage;
-  }
-
+function buildOgThumbnailSrc(post: PostThumbnailInput): string {
   const searchParams = new URLSearchParams({
     title: post.title,
   });
@@ -29,13 +23,35 @@ export function getPostThumbnailSrc(post: PostThumbnailInput): string {
   return `/api/og?${searchParams.toString()}`;
 }
 
-export function getPostThumbnailUrl(
+export function getPostThumbnailSrc(
   post: PostThumbnailInput,
-  origin: string
+  fallbackSrc?: string | null
 ): string {
-  return new URL(getPostThumbnailSrc(post), origin).toString();
+  const coverImage = post.coverImage?.trim();
+
+  if (coverImage) {
+    return coverImage;
+  }
+
+  const fallback = fallbackSrc?.trim();
+  if (fallback) {
+    return fallback;
+  }
+
+  return buildOgThumbnailSrc(post);
 }
 
-export function getPostThumbnailAppUrl(post: PostThumbnailInput): string {
-  return getAppUrl(getPostThumbnailSrc(post));
+export function getPostThumbnailUrl(
+  post: PostThumbnailInput,
+  origin: string,
+  fallbackSrc?: string | null
+): string {
+  return new URL(getPostThumbnailSrc(post, fallbackSrc), origin).toString();
+}
+
+export function getPostThumbnailAppUrl(
+  post: PostThumbnailInput,
+  fallbackSrc?: string | null
+): string {
+  return getAppUrl(getPostThumbnailSrc(post, fallbackSrc));
 }

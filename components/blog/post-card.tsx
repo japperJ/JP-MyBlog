@@ -27,15 +27,16 @@ interface PostCardProps {
       };
     }>;
   };
+  defaultThumbnailUrl?: string | null;
 }
 
-export function PostCard({ post }: PostCardProps) {
+export function PostCard({ post, defaultThumbnailUrl }: PostCardProps) {
   const thumbnailSrc = getPostThumbnailSrc({
     title: post.title,
     excerpt: post.excerpt,
     coverImage: post.coverImage,
     category: post.categories[0]?.category.name,
-  });
+  }, defaultThumbnailUrl);
 
   return (
     <Link href={`/blog/${post.slug}`}>

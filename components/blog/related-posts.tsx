@@ -13,9 +13,10 @@ interface RelatedPost {
 
 interface RelatedPostsProps {
   posts: RelatedPost[];
+  defaultThumbnailUrl?: string | null;
 }
 
-export function RelatedPosts({ posts }: RelatedPostsProps) {
+export function RelatedPosts({ posts, defaultThumbnailUrl }: RelatedPostsProps) {
   if (posts.length === 0) return null;
 
   return (
@@ -34,7 +35,7 @@ export function RelatedPosts({ posts }: RelatedPostsProps) {
                   title: post.title,
                   excerpt: post.excerpt,
                   coverImage: post.coverImage,
-                })}
+                }, defaultThumbnailUrl)}
                 alt={post.title}
                 fill
                 sizes="(max-width: 768px) 100vw, 33vw"

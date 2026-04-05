@@ -61,6 +61,8 @@ interface PostPageProps {
   postNavigation?: ReactNode;
   /** Server-rendered related posts section */
   relatedPosts?: ReactNode;
+  /** Default thumbnail chosen in admin/media */
+  defaultThumbnailUrl?: string | null;
 }
 
 export default function PostPage({
@@ -70,6 +72,7 @@ export default function PostPage({
   breadcrumbs,
   postNavigation,
   relatedPosts,
+  defaultThumbnailUrl,
 }: PostPageProps) {
   if (!post) {
     notFound();
@@ -81,7 +84,7 @@ export default function PostPage({
     excerpt: post.excerpt,
     coverImage: post.coverImage,
     category: post.categories[0]?.category.name,
-  });
+  }, defaultThumbnailUrl);
 
   // Only h2/h3 headings — determines whether to show the two-column TOC layout
   const hasToc = headings.filter((h) => h.level >= 2 && h.level <= 3).length > 0;

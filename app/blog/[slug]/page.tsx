@@ -8,6 +8,7 @@ import { Footer } from "@/components/footer";
 import { prisma } from "@/lib/prisma";
 import { extractHeadings } from "@/lib/markdown";
 import { getAppUrl, getConfiguredAppOrigin } from "@/lib/runtime-config";
+import { getDefaultThumbnailUrl } from "@/lib/site-settings";
 import { getPostThumbnailUrl } from "@/lib/post-thumbnail";
 
 /**
@@ -31,6 +32,8 @@ type Props = {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
+
+  const defaultThumbnailUrl = await getDefaultThumbnailUrl();
 
   const post = await prisma.post.findUnique({
     where: { slug },
@@ -62,7 +65,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       coverImage: post.coverImage,
       category: categoryName,
     },
-    appOrigin
+    appOrigin,
+    defaultThumbnailUrl
   );
   const canonicalUrl = getAppUrl(`/blog/${slug}`);
 
@@ -114,6 +118,8 @@ export async function generateStaticParams() {
 
 export default async function PostPage({ params }: Props) {
   const { slug } = await params;
+
+  const defaultThumbnailUrl = await getDefaultThumbnailUrl();
 
   const post = await prisma.post.findUnique({
     where: { slug },
@@ -208,7 +214,8 @@ export default async function PostPage({ params }: Props) {
       coverImage: post.coverImage,
       category: primaryCategory?.name,
     },
-    appOrigin
+    appOrigin,
+    defaultThumbnailUrl
   );
 
   const blogPostingJsonLd = {
@@ -260,7 +267,8 @@ export default async function PostPage({ params }: Props) {
         postNavigation={
           <PostNavigation prevPost={prevPost} nextPost={nextPost} />
         }
-        relatedPosts={<RelatedPosts posts={relatedPosts} />}
+        relatedPosts={<RelatedPosts posts={relatedPosts} defaultThumbnailUrl={defaultThumbnailUrl} />}
+        defaultThumbnailUrl={defaultThumbnailUrl}
       />
       <Footer />
     </>
