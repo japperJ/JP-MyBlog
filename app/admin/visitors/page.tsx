@@ -178,9 +178,10 @@ export default async function VisitorsPage({ searchParams }: Props) {
   let countryData: ChartSlice[] = [];
   let deviceData: ChartSlice[] = [];
   let pathData: ChartSlice[] = [];
+  let visitorData: ChartSlice[] = [];
 
   try {
-    const [browserRows, countryRows, deviceRows, pathRows] = await Promise.all([
+    const [browserRows, countryRows, deviceRows, pathRows, visitorRows] = await Promise.all([
       prisma.visitorEvent.groupBy({
         by: ["browser"],
         _count: { id: true },
@@ -201,6 +202,13 @@ export default async function VisitorsPage({ searchParams }: Props) {
       prisma.visitorEvent.groupBy({
         by: ["pathname"],
         where: { eventType: "page_view" },
+        _count: { id: true },
+        orderBy: { _count: { id: "desc" } },
+        take: 10,
+      }),
+      prisma.visitorEvent.groupBy({
+        by: ["visitorId"],
+        where: { visitorId: { not: null } },
         _count: { id: true },
         orderBy: { _count: { id: "desc" } },
         take: 10,
@@ -231,6 +239,15 @@ export default async function VisitorsPage({ searchParams }: Props) {
     pathData = pathRows
       .slice(0, 10)
       .map((r) => ({ name: r.pathname, value: r._count.id }));
+
+    visitorData = collapseToTopN(
+      visitorRows.map((r) => ({
+        // Shorten UUID to last 8 chars so legend labels are readable
+        name: r.visitorId ? r.visitorId.slice(-8) : "Unknown",
+        value: r._count.id,
+      })),
+      9
+    );
   } catch (chartError) {
     console.error("Visitor charts aggregation failed", { error: chartError });
   }
@@ -338,6 +355,7 @@ export default async function VisitorsPage({ searchParams }: Props) {
             countryData={countryData}
             deviceData={deviceData}
             pathData={pathData}
+            visitorData={visitorData}
           />
 
           <Card>

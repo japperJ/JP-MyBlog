@@ -19,6 +19,7 @@ interface VisitorChartsProps {
   countryData: ChartSlice[];
   deviceData: ChartSlice[];
   pathData: ChartSlice[];
+  visitorData: ChartSlice[];
 }
 
 const COLORS = [
@@ -109,13 +110,14 @@ function DonutChart({ title, data }: DonutChartProps) {
   );
 }
 
-export function VisitorCharts({ browserData, countryData, deviceData, pathData }: VisitorChartsProps) {
+export function VisitorCharts({ browserData, countryData, deviceData, pathData, visitorData }: VisitorChartsProps) {
   return (
     <div className="grid gap-6 md:grid-cols-2">
       <DonutChart title="Browser Distribution" data={browserData} />
       <DonutChart title="Country / GEO Distribution" data={countryData} />
       <DonutChart title="Device & Bot Type" data={deviceData} />
       <DonutChart title="Top Paths (Page Views)" data={pathData} />
+      <DonutChart title="Top Visitors (by event count)" data={visitorData} />
     </div>
   );
 }
