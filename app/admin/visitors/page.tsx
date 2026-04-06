@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Eye, Users, Shield, Bot } from "lucide-react";
 import { ensureVisitorEventsSchema } from "@/lib/visitor-schema";
+import { VisitorCharts, type ChartSlice } from "@/components/admin/visitor-charts";
 
 const PAGE_SIZE = 50;
 
@@ -62,6 +63,19 @@ function getVisitorsPageErrorMessage(error: unknown): string {
   }
 
   return "Visitor data is temporarily unavailable due to a server-side query error. Please check logs and try again.";
+}
+
+function collapseToTopN(
+  rows: Array<{ name: string | null; value: number }>,
+  n: number
+): ChartSlice[] {
+  const sorted = [...rows].sort((a, b) => b.value - a.value);
+  const top = sorted.slice(0, n);
+  const rest = sorted.slice(n);
+  const otherTotal = rest.reduce((sum, r) => sum + r.value, 0);
+  const result: ChartSlice[] = top.map((r) => ({ name: r.name ?? "Unknown", value: r.value }));
+  if (otherTotal > 0) result.push({ name: "Other", value: otherTotal });
+  return result;
 }
 
 export default async function VisitorsPage({ searchParams }: Props) {
@@ -160,6 +174,67 @@ export default async function VisitorsPage({ searchParams }: Props) {
   const totalPages = Math.max(1, Math.ceil(totalEvents / PAGE_SIZE));
   const currentPage = Math.min(requestedPage, totalPages);
 
+  let browserData: ChartSlice[] = [];
+  let countryData: ChartSlice[] = [];
+  let deviceData: ChartSlice[] = [];
+  let pathData: ChartSlice[] = [];
+
+  try {
+    const [browserRows, countryRows, deviceRows, pathRows] = await Promise.all([
+      prisma.visitorEvent.groupBy({
+        by: ["browser"],
+        _count: { id: true },
+        orderBy: { _count: { id: "desc" } },
+        take: 9,
+      }),
+      prisma.visitorEvent.groupBy({
+        by: ["country"],
+        _count: { id: true },
+        orderBy: { _count: { id: "desc" } },
+        take: 9,
+      }),
+      prisma.visitorEvent.groupBy({
+        by: ["deviceType", "isBot"],
+        _count: { id: true },
+        orderBy: { _count: { id: "desc" } },
+      }),
+      prisma.visitorEvent.groupBy({
+        by: ["pathname"],
+        where: { eventType: "page_view" },
+        _count: { id: true },
+        orderBy: { _count: { id: "desc" } },
+        take: 10,
+      }),
+    ]);
+
+    browserData = collapseToTopN(
+      browserRows.map((r) => ({ name: r.browser, value: r._count.id })),
+      8
+    );
+
+    countryData = collapseToTopN(
+      countryRows.map((r) => ({ name: r.country, value: r._count.id })),
+      8
+    );
+
+    // Merge device type rows — bots go into "Bot" bucket
+    const deviceMap = new Map<string, number>();
+    for (const row of deviceRows) {
+      const label = row.isBot ? "Bot" : (row.deviceType ?? "Unknown");
+      deviceMap.set(label, (deviceMap.get(label) ?? 0) + row._count.id);
+    }
+    deviceData = collapseToTopN(
+      Array.from(deviceMap.entries()).map(([name, value]) => ({ name, value })),
+      8
+    );
+
+    pathData = pathRows
+      .slice(0, 10)
+      .map((r) => ({ name: r.pathname, value: r._count.id }));
+  } catch (chartError) {
+    console.error("Visitor charts aggregation failed", { error: chartError });
+  }
+
   if (!dataErrorMessage) {
     try {
       events = await prisma.visitorEvent.findMany({
@@ -257,6 +332,13 @@ export default async function VisitorsPage({ searchParams }: Props) {
               </CardContent>
             </Card>
           </div>
+
+          <VisitorCharts
+            browserData={browserData}
+            countryData={countryData}
+            deviceData={deviceData}
+            pathData={pathData}
+          />
 
           <Card>
             <CardHeader>
