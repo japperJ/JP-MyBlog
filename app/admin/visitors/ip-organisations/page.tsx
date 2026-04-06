@@ -5,10 +5,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { prisma } from "@/lib/prisma";
 import { ensureVisitorEventsSchema } from "@/lib/visitor-schema";
 import {
-  getRipeDbLookupUrl,
   lookupRipeOrgsForIPs,
   UNKNOWN_RESPONSIBLE_ORGANISATION,
 } from "@/lib/ripe-lookup";
+import { IpOrganisationsTable, type OrgGroup } from "./ip-organisations-table";
 
 type IpOrganisationRow = {
   organisation: string;
@@ -57,10 +57,31 @@ function sortRows(rows: IpOrganisationRow[]): IpOrganisationRow[] {
   });
 }
 
+function groupRowsByOrganisation(rows: IpOrganisationRow[]): OrgGroup[] {
+  const sorted = sortRows(rows);
+  const groupMap = new Map<string, OrgGroup>();
+
+  for (const row of sorted) {
+    const existing = groupMap.get(row.organisation);
+    if (existing) {
+      existing.totalEvents += row.eventCount;
+      existing.ips.push({ ipAddress: row.ipAddress, eventCount: row.eventCount, location: row.location });
+    } else {
+      groupMap.set(row.organisation, {
+        organisation: row.organisation,
+        totalEvents: row.eventCount,
+        ips: [{ ipAddress: row.ipAddress, eventCount: row.eventCount, location: row.location }],
+      });
+    }
+  }
+
+  return Array.from(groupMap.values());
+}
+
 export default async function IpOrganisationsPage() {
   await ensureVisitorEventsSchema();
 
-  let rows: IpOrganisationRow[] = [];
+  let groups: OrgGroup[] = [];
   let dataErrorMessage: string | null = null;
 
   try {
@@ -106,24 +127,24 @@ export default async function IpOrganisationsPage() {
         .filter((row): row is readonly [string, string] => Boolean(row))
     );
 
-    rows = sortRows(
-      ipAddressRows.flatMap((row) => {
-        const ipAddress = row.ipAddress?.trim();
-        if (!ipAddress) {
-          return [];
-        }
+    const flatRows: IpOrganisationRow[] = ipAddressRows.flatMap((row) => {
+      const ipAddress = row.ipAddress?.trim();
+      if (!ipAddress) {
+        return [];
+      }
 
-        return [
-          {
-            organisation:
-              organisationsByIp.get(ipAddress) ?? UNKNOWN_RESPONSIBLE_ORGANISATION,
-            ipAddress,
-            eventCount: row._count.id,
-            location: locationsByIp.get(ipAddress) ?? "—",
-          },
-        ];
-      })
-    );
+      return [
+        {
+          organisation:
+            organisationsByIp.get(ipAddress) ?? UNKNOWN_RESPONSIBLE_ORGANISATION,
+          ipAddress,
+          eventCount: row._count.id,
+          location: locationsByIp.get(ipAddress) ?? "—",
+        },
+      ];
+    });
+
+    groups = groupRowsByOrganisation(flatRows);
   } catch (error) {
     dataErrorMessage = getVisitorsPageErrorMessage(error);
     console.error("Visitors IP organisations query failed", {
@@ -158,7 +179,8 @@ export default async function IpOrganisationsPage() {
             <CardHeader>
               <CardTitle>Responsible organisations</CardTitle>
               <CardDescription>
-                RIPE whois data is resolved on demand per IP address. Links open the corresponding RIPE DB query.
+                RIPE whois data is resolved on demand per IP address. Click an organisation row to
+                expand or collapse its IPs. Links open the corresponding RIPE DB query.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -168,42 +190,10 @@ export default async function IpOrganisationsPage() {
                 </div>
               ) : null}
 
-              {rows.length === 0 ? (
+              {groups.length === 0 ? (
                 <p className="text-muted-foreground">No visitor IP addresses recorded yet.</p>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[960px] text-sm">
-                    <thead>
-                      <tr className="border-b text-left text-muted-foreground">
-                        <th className="py-3 pr-4 font-medium">Responsible organisation</th>
-                        <th className="py-3 pr-4 font-medium">IP</th>
-                        <th className="py-3 pr-4 font-medium">Events</th>
-                        <th className="py-3 pr-4 font-medium">Location</th>
-                        <th className="py-3 pr-4 font-medium">RIPE DB link</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {rows.map((row) => (
-                        <tr key={row.ipAddress} className="border-b align-top">
-                          <td className="py-3 pr-4 font-medium">{row.organisation}</td>
-                          <td className="py-3 pr-4 font-mono text-xs">{row.ipAddress}</td>
-                          <td className="py-3 pr-4">{row.eventCount}</td>
-                          <td className="py-3 pr-4 text-muted-foreground">{row.location}</td>
-                          <td className="py-3 pr-4">
-                            <a
-                              href={getRipeDbLookupUrl(row.ipAddress)}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-primary underline-offset-4 hover:underline"
-                            >
-                              Open RIPE DB
-                            </a>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <IpOrganisationsTable groups={groups} />
               )}
             </CardContent>
           </Card>
