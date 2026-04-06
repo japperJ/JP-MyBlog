@@ -22,6 +22,7 @@ interface VisitorChartsProps {
   visitorData: ChartSlice[];
   ipData: ChartSlice[];
   cityData: ChartSlice[];
+  orgData?: ChartSlice[];
 }
 
 const COLORS = [
@@ -112,7 +113,16 @@ function DonutChart({ title, data }: DonutChartProps) {
   );
 }
 
-export function VisitorCharts({ browserData, countryData, deviceData, pathData, visitorData, ipData, cityData }: VisitorChartsProps) {
+export function VisitorCharts({
+  browserData,
+  countryData,
+  deviceData,
+  pathData,
+  visitorData,
+  ipData,
+  cityData,
+  orgData,
+}: VisitorChartsProps) {
   return (
     <div className="grid gap-6 md:grid-cols-2">
       <DonutChart title="Browser Distribution" data={browserData} />
@@ -121,6 +131,7 @@ export function VisitorCharts({ browserData, countryData, deviceData, pathData, 
       <DonutChart title="Top Paths (Page Views)" data={pathData} />
       <DonutChart title="Top Visitors (by event count)" data={visitorData} />
       <DonutChart title="Top IP Addresses" data={ipData} />
+      {orgData ? <DonutChart title="Responsible Organisations (RIPE)" data={orgData} /> : null}
       <DonutChart title="Top Cities" data={cityData} />
     </div>
   );
