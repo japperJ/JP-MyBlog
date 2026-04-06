@@ -9,6 +9,8 @@ import {
   UNKNOWN_RESPONSIBLE_ORGANISATION,
 } from "@/lib/ripe-lookup";
 import { IpOrganisationsTable, type OrgGroup } from "./ip-organisations-table";
+import { computeDateRange, DEFAULT_RANGE, getDateRangeLabel } from "@/lib/visitor-date-range";
+import { VisitorDateFilter } from "@/components/admin/visitor-date-filter";
 
 type IpOrganisationRow = {
   organisation: string;
@@ -78,8 +80,20 @@ function groupRowsByOrganisation(rows: IpOrganisationRow[]): OrgGroup[] {
   return Array.from(groupMap.values());
 }
 
-export default async function IpOrganisationsPage() {
+type Props = {
+  searchParams: Promise<{
+    range?: string;
+    dateFrom?: string;
+    dateTo?: string;
+  }>;
+};
+
+export default async function IpOrganisationsPage({ searchParams }: Props) {
+  const { range, dateFrom, dateTo } = await searchParams;
   await ensureVisitorEventsSchema();
+
+  const dateFilter = computeDateRange(range, dateFrom, dateTo);
+  const currentRange = (range as string) ?? DEFAULT_RANGE;
 
   let groups: OrgGroup[] = [];
   let dataErrorMessage: string | null = null;
@@ -87,7 +101,10 @@ export default async function IpOrganisationsPage() {
   try {
     const ipAddressRows = await prisma.visitorEvent.groupBy({
       by: ["ipAddress"],
-      where: { ipAddress: { not: null } },
+      where: {
+        ipAddress: { not: null },
+        ...(dateFilter ? { occurredAt: dateFilter } : {}),
+      },
       _count: { id: true },
       orderBy: { _count: { id: "desc" } },
       take: 200,
@@ -101,7 +118,10 @@ export default async function IpOrganisationsPage() {
       ipAddresses.length === 0
         ? Promise.resolve([])
         : prisma.visitorEvent.findMany({
-            where: { ipAddress: { in: ipAddresses } },
+            where: {
+              ipAddress: { in: ipAddresses },
+              ...(dateFilter ? { occurredAt: dateFilter } : {}),
+            },
             distinct: ["ipAddress"],
             orderBy: { occurredAt: "desc" },
             select: {
@@ -174,6 +194,22 @@ export default async function IpOrganisationsPage() {
               </Button>
             </div>
           </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Date Range</CardTitle>
+              <CardDescription>
+                {getDateRangeLabel(currentRange)} — IP data below reflects this window.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <VisitorDateFilter
+                currentRange={currentRange}
+                currentDateFrom={dateFrom ?? ""}
+                currentDateTo={dateTo ?? ""}
+              />
+            </CardContent>
+          </Card>
 
           <Card>
             <CardHeader>

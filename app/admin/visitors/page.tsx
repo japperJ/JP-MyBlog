@@ -12,6 +12,8 @@ import {
   lookupRipeOrgsForIPs,
   UNKNOWN_RESPONSIBLE_ORGANISATION,
 } from "@/lib/ripe-lookup";
+import { computeDateRange, DEFAULT_RANGE, getDateRangeLabel } from "@/lib/visitor-date-range";
+import { VisitorDateFilter } from "@/components/admin/visitor-date-filter";
 
 const PAGE_SIZE = 50;
 
@@ -25,6 +27,9 @@ type Props = {
     ipAddress?: string;
     auth?: string;
     bot?: string;
+    range?: string;
+    dateFrom?: string;
+    dateTo?: string;
   }>;
 };
 
@@ -92,11 +97,18 @@ export default async function VisitorsPage({ searchParams }: Props) {
     ipAddress,
     auth,
     bot,
+    range,
+    dateFrom,
+    dateTo,
   } = await searchParams;
 
   const requestedPage = Math.max(1, Number.parseInt(pageParam || "1", 10));
 
+  const dateFilter = computeDateRange(range, dateFrom, dateTo);
+  const dateFilterClause = dateFilter ? { occurredAt: dateFilter } : {};
+
   const where = {
+    ...dateFilterClause,
     ...(eventType ? { eventType } : {}),
     ...(source ? { source } : {}),
     ...(pathname ? { pathname: { contains: pathname, mode: "insensitive" as const } } : {}),
@@ -107,6 +119,8 @@ export default async function VisitorsPage({ searchParams }: Props) {
     ...(bot === "bot" ? { isBot: true } : {}),
     ...(bot === "human" ? { isBot: false } : {}),
   };
+
+  const currentRange = (range as string) ?? DEFAULT_RANGE;
 
   // Self-heal missing visitor_events schema when possible.
   await ensureVisitorEventsSchema();
@@ -192,45 +206,48 @@ export default async function VisitorsPage({ searchParams }: Props) {
     const [browserRows, countryRows, deviceRows, pathRows, visitorRows, ipRows, cityRows] = await Promise.all([
       prisma.visitorEvent.groupBy({
         by: ["browser"],
+        where: { ...dateFilterClause },
         _count: { id: true },
         orderBy: { _count: { id: "desc" } },
         take: 9,
       }),
       prisma.visitorEvent.groupBy({
         by: ["country"],
+        where: { ...dateFilterClause },
         _count: { id: true },
         orderBy: { _count: { id: "desc" } },
         take: 9,
       }),
       prisma.visitorEvent.groupBy({
         by: ["deviceType", "isBot"],
+        where: { ...dateFilterClause },
         _count: { id: true },
         orderBy: { _count: { id: "desc" } },
       }),
       prisma.visitorEvent.groupBy({
         by: ["pathname"],
-        where: { eventType: "page_view" },
+        where: { eventType: "page_view", ...dateFilterClause },
         _count: { id: true },
         orderBy: { _count: { id: "desc" } },
         take: 10,
       }),
       prisma.visitorEvent.groupBy({
         by: ["visitorId"],
-        where: { visitorId: { not: null } },
+        where: { visitorId: { not: null }, ...dateFilterClause },
         _count: { id: true },
         orderBy: { _count: { id: "desc" } },
         take: 10,
       }),
       prisma.visitorEvent.groupBy({
         by: ["ipAddress"],
-        where: { ipAddress: { not: null } },
+        where: { ipAddress: { not: null }, ...dateFilterClause },
         _count: { id: true },
         orderBy: { _count: { id: "desc" } },
         take: 200,
       }),
       prisma.visitorEvent.groupBy({
         by: ["city"],
-        where: { city: { not: null } },
+        where: { city: { not: null }, ...dateFilterClause },
         _count: { id: true },
         orderBy: { _count: { id: "desc" } },
         take: 10,
@@ -354,6 +371,9 @@ export default async function VisitorsPage({ searchParams }: Props) {
   if (ipAddress) paginationParams.ipAddress = ipAddress;
   if (auth) paginationParams.auth = auth;
   if (bot) paginationParams.bot = bot;
+  paginationParams.range = currentRange;
+  if (currentRange === "custom" && dateFrom) paginationParams.dateFrom = dateFrom;
+  if (currentRange === "custom" && dateTo) paginationParams.dateTo = dateTo;
 
   return (
     <>
@@ -376,6 +396,22 @@ export default async function VisitorsPage({ searchParams }: Props) {
               </Button>
             </div>
           </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Date Range</CardTitle>
+              <CardDescription>
+                {getDateRangeLabel(currentRange)} — all metrics and charts below reflect this window.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <VisitorDateFilter
+                currentRange={currentRange}
+                currentDateFrom={dateFrom ?? ""}
+                currentDateTo={dateTo ?? ""}
+              />
+            </CardContent>
+          </Card>
 
           <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
             <Card>
@@ -440,6 +476,14 @@ export default async function VisitorsPage({ searchParams }: Props) {
             </CardHeader>
             <CardContent>
               <form className="grid gap-4 md:grid-cols-2 xl:grid-cols-4" method="GET">
+                {/* Preserve date range across filter form submissions */}
+                <input type="hidden" name="range" value={currentRange} />
+                {currentRange === "custom" && dateFrom && (
+                  <input type="hidden" name="dateFrom" value={dateFrom} />
+                )}
+                {currentRange === "custom" && dateTo && (
+                  <input type="hidden" name="dateTo" value={dateTo} />
+                )}
                 <div className="space-y-2">
                   <label className="text-sm font-medium" htmlFor="pathname">Path contains</label>
                   <Input id="pathname" name="pathname" defaultValue={pathname} placeholder="/blog" />
