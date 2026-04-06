@@ -1,15 +1,16 @@
 "use client";
 
-import dynamic from "next/dynamic";
+// Import ALL recharts components together — splitting them across separate dynamic()
+// calls breaks internal React context and causes fills to render grey.
+import {
+  PieChart,
+  Pie,
+  Cell,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-
-// Lazy-load Recharts to keep the main bundle small (admin-only page)
-const PieChart = dynamic(() => import("recharts").then((m) => m.PieChart), { ssr: false });
-const Pie = dynamic(() => import("recharts").then((m) => m.Pie), { ssr: false });
-const Cell = dynamic(() => import("recharts").then((m) => m.Cell), { ssr: false });
-const Tooltip = dynamic(() => import("recharts").then((m) => m.Tooltip), { ssr: false });
-const Legend = dynamic(() => import("recharts").then((m) => m.Legend), { ssr: false });
-const ResponsiveContainer = dynamic(() => import("recharts").then((m) => m.ResponsiveContainer), { ssr: false });
 
 export type ChartSlice = { name: string; value: number };
 
@@ -69,13 +70,13 @@ function DonutChart({ title, data }: DonutChartProps) {
                 outerRadius={90}
                 paddingAngle={3}
                 dataKey="value"
+                isAnimationActive={false}
               >
                 {data.map((_entry, index) => (
                   <Cell
                     key={`cell-${index}`}
                     fill={COLORS[index % COLORS.length]}
                     stroke="none"
-                    opacity={0.9}
                   />
                 ))}
               </Pie>
