@@ -179,9 +179,11 @@ export default async function VisitorsPage({ searchParams }: Props) {
   let deviceData: ChartSlice[] = [];
   let pathData: ChartSlice[] = [];
   let visitorData: ChartSlice[] = [];
+  let ipData: ChartSlice[] = [];
+  let cityData: ChartSlice[] = [];
 
   try {
-    const [browserRows, countryRows, deviceRows, pathRows, visitorRows] = await Promise.all([
+    const [browserRows, countryRows, deviceRows, pathRows, visitorRows, ipRows, cityRows] = await Promise.all([
       prisma.visitorEvent.groupBy({
         by: ["browser"],
         _count: { id: true },
@@ -209,6 +211,20 @@ export default async function VisitorsPage({ searchParams }: Props) {
       prisma.visitorEvent.groupBy({
         by: ["visitorId"],
         where: { visitorId: { not: null } },
+        _count: { id: true },
+        orderBy: { _count: { id: "desc" } },
+        take: 10,
+      }),
+      prisma.visitorEvent.groupBy({
+        by: ["ipAddress"],
+        where: { ipAddress: { not: null } },
+        _count: { id: true },
+        orderBy: { _count: { id: "desc" } },
+        take: 10,
+      }),
+      prisma.visitorEvent.groupBy({
+        by: ["city"],
+        where: { city: { not: null } },
         _count: { id: true },
         orderBy: { _count: { id: "desc" } },
         take: 10,
@@ -246,6 +262,16 @@ export default async function VisitorsPage({ searchParams }: Props) {
         name: r.visitorId ? r.visitorId.slice(-8) : "Unknown",
         value: r._count.id,
       })),
+      9
+    );
+
+    ipData = collapseToTopN(
+      ipRows.map((r) => ({ name: r.ipAddress ?? "Unknown", value: r._count.id })),
+      9
+    );
+
+    cityData = collapseToTopN(
+      cityRows.map((r) => ({ name: r.city ?? "Unknown", value: r._count.id })),
       9
     );
   } catch (chartError) {
@@ -356,6 +382,8 @@ export default async function VisitorsPage({ searchParams }: Props) {
             deviceData={deviceData}
             pathData={pathData}
             visitorData={visitorData}
+            ipData={ipData}
+            cityData={cityData}
           />
 
           <Card>
