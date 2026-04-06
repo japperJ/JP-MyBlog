@@ -8,6 +8,10 @@ import { Input } from "@/components/ui/input";
 import { Eye, Users, Shield, Bot } from "lucide-react";
 import { ensureVisitorEventsSchema } from "@/lib/visitor-schema";
 import { VisitorCharts, type ChartSlice } from "@/components/admin/visitor-charts";
+import {
+  lookupRipeOrgsForIPs,
+  UNKNOWN_RESPONSIBLE_ORGANISATION,
+} from "@/lib/ripe-lookup";
 
 const PAGE_SIZE = 50;
 
@@ -181,6 +185,8 @@ export default async function VisitorsPage({ searchParams }: Props) {
   let visitorData: ChartSlice[] = [];
   let ipData: ChartSlice[] = [];
   let cityData: ChartSlice[] = [];
+  let orgData: ChartSlice[] | undefined;
+  let topIpRows: Array<{ ipAddress: string | null; _count: { id: number } }> = [];
 
   try {
     const [browserRows, countryRows, deviceRows, pathRows, visitorRows, ipRows, cityRows] = await Promise.all([
@@ -220,7 +226,7 @@ export default async function VisitorsPage({ searchParams }: Props) {
         where: { ipAddress: { not: null } },
         _count: { id: true },
         orderBy: { _count: { id: "desc" } },
-        take: 10,
+        take: 200,
       }),
       prisma.visitorEvent.groupBy({
         by: ["city"],
@@ -269,6 +275,7 @@ export default async function VisitorsPage({ searchParams }: Props) {
       ipRows.map((r) => ({ name: r.ipAddress ?? "Unknown", value: r._count.id })),
       9
     );
+    topIpRows = ipRows;
 
     cityData = collapseToTopN(
       cityRows.map((r) => ({ name: r.city ?? "Unknown", value: r._count.id })),
@@ -276,6 +283,38 @@ export default async function VisitorsPage({ searchParams }: Props) {
     );
   } catch (chartError) {
     console.error("Visitor charts aggregation failed", { error: chartError });
+  }
+
+  try {
+    const ipAddresses = topIpRows
+      .map((row) => row.ipAddress?.trim())
+      .filter((value): value is string => Boolean(value));
+
+    if (ipAddresses.length > 0) {
+      const organisationsByIp = await lookupRipeOrgsForIPs(ipAddresses);
+      const organisationTotals = new Map<string, number>();
+
+      for (const row of topIpRows) {
+        const normalizedIpAddress = row.ipAddress?.trim();
+        if (!normalizedIpAddress) {
+          continue;
+        }
+
+        const organisation =
+          organisationsByIp.get(normalizedIpAddress) ?? UNKNOWN_RESPONSIBLE_ORGANISATION;
+        organisationTotals.set(
+          organisation,
+          (organisationTotals.get(organisation) ?? 0) + row._count.id
+        );
+      }
+
+      orgData = collapseToTopN(
+        Array.from(organisationTotals.entries()).map(([name, value]) => ({ name, value })),
+        9
+      );
+    }
+  } catch (ripeError) {
+    console.error("Visitor organisation aggregation failed", { error: ripeError });
   }
 
   if (!dataErrorMessage) {
@@ -328,9 +367,14 @@ export default async function VisitorsPage({ searchParams }: Props) {
                 Public traffic, authenticated activity, and admin audit events in one place.
               </p>
             </div>
-            <Button asChild variant="outline">
-              <Link href="/admin">Back to dashboard</Link>
-            </Button>
+            <div className="flex flex-wrap gap-3">
+              <Button asChild variant="outline">
+                <Link href="/admin/visitors/ip-organisations">IP Organisations</Link>
+              </Button>
+              <Button asChild variant="outline">
+                <Link href="/admin">Back to dashboard</Link>
+              </Button>
+            </div>
           </div>
 
           <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
@@ -384,6 +428,7 @@ export default async function VisitorsPage({ searchParams }: Props) {
             visitorData={visitorData}
             ipData={ipData}
             cityData={cityData}
+            orgData={orgData}
           />
 
           <Card>
