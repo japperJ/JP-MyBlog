@@ -22,15 +22,15 @@ interface VisitorChartsProps {
 
 const COLORS = [
   "#6366f1", // indigo
-  "#8b5cf6", // violet
-  "#06b6d4", // cyan
+  "#f43f5e", // rose
   "#10b981", // emerald
   "#f59e0b", // amber
-  "#ef4444", // red
+  "#3b82f6", // blue
   "#ec4899", // pink
-  "#64748b", // slate
-  "#a3e635", // lime
-  "#fb923c", // orange
+  "#14b8a6", // teal
+  "#f97316", // orange
+  "#a855f7", // purple
+  "#84cc16", // lime
 ];
 
 function formatTooltip(value: number, name: string, props: { payload?: { value?: number }; total?: number }) {
@@ -55,23 +55,28 @@ function DonutChart({ title, data }: DonutChartProps) {
       </CardHeader>
       <CardContent>
         {isEmpty ? (
-          <div className="h-[220px] flex items-center justify-center text-sm text-muted-foreground">
+          <div className="h-[260px] flex items-center justify-center text-sm text-muted-foreground">
             No data yet
           </div>
         ) : (
-          <ResponsiveContainer width="100%" height={220}>
+          <ResponsiveContainer width="100%" height={260}>
             <PieChart>
               <Pie
                 data={data}
                 cx="50%"
                 cy="50%"
-                innerRadius={50}
-                outerRadius={80}
-                paddingAngle={2}
+                innerRadius={55}
+                outerRadius={90}
+                paddingAngle={3}
                 dataKey="value"
               >
                 {data.map((_entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  <Cell
+                    key={`cell-${index}`}
+                    fill={COLORS[index % COLORS.length]}
+                    stroke="none"
+                    opacity={0.9}
+                  />
                 ))}
               </Pie>
               <Tooltip
