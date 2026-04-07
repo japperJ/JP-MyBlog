@@ -277,7 +277,11 @@ export default function NewPostPage() {
                     {tags.map((tag) => (
                       <label
                         key={tag.id}
-                        className="flex items-center gap-2 px-3 py-1.5 border rounded-full hover:bg-muted/50 cursor-pointer text-sm"
+                        className={`flex items-center gap-2 px-3 py-1.5 border rounded-full cursor-pointer text-sm transition-colors ${
+                          formData.tagIds.includes(tag.id)
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "hover:bg-muted/50"
+                        }`}
                       >
                         <input
                           type="checkbox"
@@ -297,9 +301,7 @@ export default function NewPostPage() {
                           }}
                           className="sr-only"
                         />
-                        <span className={formData.tagIds.includes(tag.id) ? "font-medium" : ""}>
-                          #{tag.name}
-                        </span>
+                        <span>#{tag.name}</span>
                       </label>
                     ))}
                   </div>
