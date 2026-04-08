@@ -187,7 +187,7 @@ Relation: `user User` (cascade delete). Table: `sessions`.
 | `updatedAt` | DateTime | `@updatedAt` | |
 | `authorId` | String | `@@index([authorId])` | FK to User |
 
-Relations: `author User` (cascade), `categories PostCategory[]`, `tags PostTag[]`. Table: `posts`.
+Relations: `author User` (cascade), `categories PostCategory[]`, `tags PostTag[]`, `comments Comment[]`. Table: `posts`.
 
 **Category** — Content grouping
 
@@ -221,12 +221,39 @@ Relation: `posts PostTag[]`. Table: `tags`. Note: **no description field** (unli
 | `post_categories` | `postId`, `categoryId` | Composite PK, both FKs cascade on delete |
 | `post_tags` | `postId`, `tagId` | Composite PK, both FKs cascade on delete |
 
+**Comment** — Reader comments on published posts
+
+| Field | Type | Attributes | Notes |
+|---|---|---|---|
+| `id` | String | `@id @default(cuid())` | |
+| `postId` | String | `@@index([postId, status])` | FK to Post (cascade delete) |
+| `authorName` | String | | Max 100 chars (Zod) |
+| `authorEmail` | String? | | Optional; never displayed publicly |
+| `content` | String | | Max 2000 chars (Zod); stored and rendered as plain text — no HTML |
+| `status` | CommentStatus | `@default(pending)` | Enum: `pending`, `approved`, `rejected` |
+| `createdAt` | DateTime | `@default(now())` | |
+| `updatedAt` | DateTime | `@updatedAt` | |
+
+Relation: `post Post` (cascade delete). Table: `comments`.
+
+**CommentStatus moderation flow:**
+1. Reader submits a comment → status = `pending`
+2. Admin visits `/admin/comments` → approves or rejects
+3. Approved comments appear on the blog post immediately (ISR revalidated via `revalidatePath`)
+4. Rejected comments are retained in the database but never shown publicly
+
+**Spam protection invariants:**
+- Rate limit: max 3 comments per IP per 10 minutes (in-memory, resets on cold start)
+- Honeypot: hidden `website` field in the form; if filled, request returns 200 OK silently without saving
+- Only published posts accept comments — POST to `/api/comments` verifies `post.published === true`
+
 ### Key Indexes
 
 - `posts.slug` — unique, optimizes slug-based lookups
 - `posts.[published, publishedAt]` — composite, optimizes listing queries
 - `sessions.token` — unique, optimizes session lookup
 - `sessions.[userId]` — optimizes session cleanup on user operations
+- `comments.[postId, status]` — optimizes fetching approved comments per post
 
 ### Prisma Singleton
 
@@ -377,7 +404,7 @@ All public pages export `revalidate = 60`:
 ## Known Limitations
 
 - **View count has no deduplication.** `views` increments on every server render — bots, ISR revalidation, page reloads all count. This is a known limitation, not a bug.
-- **No checked-in Prisma migrations.** Schema changes use `prisma db push`. Acceptable for initial rollout; should move to proper migrations before schema stabilizes.
+- **No checked-in Prisma migrations.** Schema changes use `prisma db push --accept-data-loss`, which runs automatically on every Vercel deploy via `npm run build`. No manual schema steps are required — push a commit, the schema syncs itself. Acceptable for initial rollout; should move to proper migrations before schema stabilizes.
 - **In-memory rate limiting.** Resets on cold start. Single-instance only.
 - **Shared database across environments.** Local dev, Preview, and Production share one DB during initial rollout.
 - **No session sharing across hosts.** Each preview URL requires separate login. By design (host-only cookies).
@@ -406,7 +433,7 @@ All public pages export `revalidate = 60`:
 | `lib/mfa-token.ts` | HMAC-signed short-lived MFA challenge tokens |
 | `lib/rate-limit.ts` | In-memory rate limiter with IP extraction |
 | `lib/markdown.ts` | `extractHeadings()` for TOC generation |
-| `prisma/schema.prisma` | Database schema (6 models + 2 junction tables) |
+| `prisma/schema.prisma` | Database schema (7 models + 2 junction tables) |
 | `prisma/seed.ts` | Seed data (admin user, categories, tags, sample post) |
 
 ## Related Documentation
