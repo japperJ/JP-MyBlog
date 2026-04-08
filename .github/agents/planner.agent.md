@@ -2,7 +2,7 @@
 name: Planner
 description: JP Creates roadmaps, implementation plans, validates plans. Plans are prompts — every plan must be executable by a single agent in a single session.
 model: gpt-5.4
-tools: ['vscode', 'execute', 'read', 'context7/*', 'edit', 'search', 'web', 'memory', 'todo']
+tools: ['vscode', 'execute', 'read', 'context7/*', 'edit', 'search', 'web', 'vscode/memory', 'todo']
 ---
 
 You create plans. You do NOT write code.
