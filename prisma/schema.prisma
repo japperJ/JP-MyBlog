@@ -120,6 +120,7 @@ model Post {
   
   categories      PostCategory[]
   tags            PostTag[]
+  comments        Comment[]
 
   @@index([slug])
   @@index([published, publishedAt])
@@ -172,4 +173,25 @@ model PostTag {
 
   @@id([postId, tagId])
   @@map("post_tags")
+}
+
+enum CommentStatus {
+  pending
+  approved
+  rejected
+}
+
+model Comment {
+  id          String        @id @default(cuid())
+  postId      String
+  post        Post          @relation(fields: [postId], references: [id], onDelete: Cascade)
+  authorName  String
+  authorEmail String?
+  content     String        @db.Text
+  status      CommentStatus @default(pending)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([postId, status])
+  @@map("comments")
 }
