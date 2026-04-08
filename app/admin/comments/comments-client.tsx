@@ -29,9 +29,9 @@ interface Props {
 }
 
 const STATUS_TABS: { label: string; value: CommentStatus; icon: React.ReactNode }[] = [
-  { label: "Afventer", value: "pending", icon: <Clock className="w-4 h-4" /> },
-  { label: "Godkendt", value: "approved", icon: <CheckCircle className="w-4 h-4" /> },
-  { label: "Afvist", value: "rejected", icon: <XCircle className="w-4 h-4" /> },
+  { label: "Pending", value: "pending", icon: <Clock className="w-4 h-4" /> },
+  { label: "Approved", value: "approved", icon: <CheckCircle className="w-4 h-4" /> },
+  { label: "Rejected", value: "rejected", icon: <XCircle className="w-4 h-4" /> },
 ];
 
 export function AdminCommentsClient({
@@ -64,7 +64,16 @@ export function AdminCommentsClient({
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-5xl">
-      <h1 className="text-2xl font-bold mb-6">Kommentarer</h1>
+      <div className="mb-6">
+        <Link
+          href="/admin"
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
+        >
+          <ChevronLeft className="w-4 h-4" />
+          Back to Admin
+        </Link>
+        <h1 className="text-2xl font-bold">Comments</h1>
+      </div>
 
       {/* Status tabs */}
       <div className="flex gap-2 mb-6 border-b">
@@ -89,7 +98,7 @@ export function AdminCommentsClient({
 
       {comments.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
-          <p>Ingen kommentarer i denne kategori.</p>
+          <p>No comments in this category.</p>
         </div>
       ) : (
         <ul className="space-y-4">
@@ -126,7 +135,7 @@ export function AdminCommentsClient({
                       onClick={() => handleAction(comment.id, "approved")}
                     >
                       <CheckCircle className="w-4 h-4 mr-1" />
-                      Godkend
+                      Approve
                     </Button>
                     <Button
                       size="sm"
@@ -136,7 +145,7 @@ export function AdminCommentsClient({
                       onClick={() => handleAction(comment.id, "rejected")}
                     >
                       <XCircle className="w-4 h-4 mr-1" />
-                      Afvis
+                      Reject
                     </Button>
                   </div>
                 )}
@@ -150,7 +159,7 @@ export function AdminCommentsClient({
                     onClick={() => handleAction(comment.id, "rejected")}
                   >
                     <XCircle className="w-4 h-4 mr-1" />
-                    Afvis
+                    Reject
                   </Button>
                 )}
 
@@ -163,7 +172,7 @@ export function AdminCommentsClient({
                     onClick={() => handleAction(comment.id, "approved")}
                   >
                     <CheckCircle className="w-4 h-4 mr-1" />
-                    Godkend
+                    Approve
                   </Button>
                 )}
               </div>
@@ -180,7 +189,7 @@ export function AdminCommentsClient({
       {totalPages > 1 && (
         <div className="flex items-center justify-between mt-8">
           <p className="text-sm text-muted-foreground">
-            Side {currentPage} af {totalPages} ({total} kommentarer)
+            Page {currentPage} of {totalPages} ({total} comments)
           </p>
           <div className="flex gap-2">
             <Button
@@ -192,12 +201,12 @@ export function AdminCommentsClient({
               {currentPage > 1 ? (
                 <Link href={`/admin/comments?status=${currentStatus}&page=${currentPage - 1}`}>
                   <ChevronLeft className="w-4 h-4" />
-                  Forrige
+                  Previous
                 </Link>
               ) : (
                 <span>
                   <ChevronLeft className="w-4 h-4" />
-                  Forrige
+                  Previous
                 </span>
               )}
             </Button>
@@ -209,12 +218,12 @@ export function AdminCommentsClient({
             >
               {currentPage < totalPages ? (
                 <Link href={`/admin/comments?status=${currentStatus}&page=${currentPage + 1}`}>
-                  Næste
+                  Next
                   <ChevronRight className="w-4 h-4" />
                 </Link>
               ) : (
                 <span>
-                  Næste
+                  Next
                   <ChevronRight className="w-4 h-4" />
                 </span>
               )}
