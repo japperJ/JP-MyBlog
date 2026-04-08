@@ -17,7 +17,7 @@ export function CommentList({ comments }: CommentListProps) {
     return (
       <div className="flex flex-col items-center gap-3 py-10 text-muted-foreground">
         <MessageSquare className="w-8 h-8 opacity-40" />
-        <p className="text-sm">Vær den første til at kommentere.</p>
+        <p className="text-sm">Be the first to leave a comment.</p>
       </div>
     );
   }

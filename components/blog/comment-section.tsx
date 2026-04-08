@@ -19,9 +19,9 @@ export async function CommentSection({ postId }: CommentSectionProps) {
   });
 
   return (
-    <section className="mt-16 pt-12 border-t" aria-label="Kommentarer">
+    <section className="mt-16 pt-12 border-t" aria-label="Comments">
       <h2 className="text-2xl font-bold mb-8">
-        Kommentarer{comments.length > 0 ? ` (${comments.length})` : ""}
+        Comments{comments.length > 0 ? ` (${comments.length})` : ""}
       </h2>
 
       <CommentList comments={comments} />

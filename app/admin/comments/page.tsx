@@ -7,7 +7,7 @@ type Props = {
 };
 
 export const metadata = {
-  title: "Kommentarer | Admin",
+  title: "Comments | Admin",
 };
 
 export default async function AdminCommentsPage({ searchParams }: Props) {

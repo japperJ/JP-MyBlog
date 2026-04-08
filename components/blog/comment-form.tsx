@@ -44,15 +44,15 @@ export function CommentForm({ postId }: CommentFormProps) {
         form.reset();
       } else if (res.status === 429) {
         setState("error");
-        setErrorMessage("For mange kommentarer. Vent venligst et øjeblik og prøv igen.");
+        setErrorMessage("Too many comments. Please wait a moment and try again.");
       } else {
         const json = await res.json().catch(() => ({}));
         setState("error");
-        setErrorMessage(json.error || "Der opstod en fejl. Prøv igen.");
+        setErrorMessage(json.error || "Something went wrong. Please try again.");
       }
     } catch {
       setState("error");
-      setErrorMessage("Netværksfejl. Tjek din forbindelse og prøv igen.");
+      setErrorMessage("Network error. Check your connection and try again.");
     }
   }
 
@@ -60,10 +60,10 @@ export function CommentForm({ postId }: CommentFormProps) {
     return (
       <div className="rounded-lg bg-green-500/10 border border-green-500/20 p-6 text-center">
         <p className="font-medium text-green-700 dark:text-green-400">
-          Tak for din kommentar!
+          Thanks for your comment!
         </p>
         <p className="text-sm text-muted-foreground mt-1">
-          Den afventer godkendelse og vises, når en admin har gennemset den.
+          It&apos;s pending review and will appear once an admin has approved it.
         </p>
         <Button
           variant="ghost"
@@ -71,7 +71,7 @@ export function CommentForm({ postId }: CommentFormProps) {
           className="mt-4"
           onClick={() => setState("idle")}
         >
-          Skriv en ny kommentar
+          Write another comment
         </Button>
       </div>
     );
@@ -79,18 +79,18 @@ export function CommentForm({ postId }: CommentFormProps) {
 
   return (
     <form onSubmit={handleSubmit} noValidate className="space-y-4">
-      <h3 className="text-lg font-semibold">Skriv en kommentar</h3>
+      <h3 className="text-lg font-semibold">Leave a comment</h3>
 
       {/* Honeypot — visually hidden, must not be filled by real users */}
       <div aria-hidden="true" className="hidden">
-        <label htmlFor="website">Lad dette felt stå tomt</label>
+        <label htmlFor="website">Leave this field empty</label>
         <input id="website" name="website" type="text" tabIndex={-1} autoComplete="off" />
       </div>
 
       <div className="grid sm:grid-cols-2 gap-4">
         <div className="space-y-1.5">
           <Label htmlFor="comment-name">
-            Navn <span className="text-destructive" aria-hidden="true">*</span>
+            Name <span className="text-destructive" aria-hidden="true">*</span>
           </Label>
           <Input
             id="comment-name"
@@ -98,21 +98,21 @@ export function CommentForm({ postId }: CommentFormProps) {
             type="text"
             required
             maxLength={100}
-            placeholder="Dit navn"
+            placeholder="Your name"
             disabled={state === "submitting"}
           />
         </div>
 
         <div className="space-y-1.5">
           <Label htmlFor="comment-email">
-            Email <span className="text-muted-foreground text-xs">(valgfrit, vises ikke)</span>
+            Email <span className="text-muted-foreground text-xs">(optional, not shown publicly)</span>
           </Label>
           <Input
             id="comment-email"
             name="authorEmail"
             type="email"
             maxLength={254}
-            placeholder="din@email.dk"
+            placeholder="you@example.com"
             disabled={state === "submitting"}
           />
         </div>
@@ -120,7 +120,7 @@ export function CommentForm({ postId }: CommentFormProps) {
 
       <div className="space-y-1.5">
         <Label htmlFor="comment-content">
-          Kommentar <span className="text-destructive" aria-hidden="true">*</span>
+          Comment <span className="text-destructive" aria-hidden="true">*</span>
         </Label>
         <Textarea
           id="comment-content"
@@ -128,7 +128,7 @@ export function CommentForm({ postId }: CommentFormProps) {
           required
           maxLength={2000}
           rows={4}
-          placeholder="Skriv din kommentar her…"
+          placeholder="Write your comment here…"
           disabled={state === "submitting"}
         />
       </div>
@@ -140,11 +140,11 @@ export function CommentForm({ postId }: CommentFormProps) {
       )}
 
       <Button type="submit" disabled={state === "submitting"}>
-        {state === "submitting" ? "Sender…" : "Send kommentar"}
+        {state === "submitting" ? "Submitting…" : "Post comment"}
       </Button>
 
       <p className="text-xs text-muted-foreground">
-        Kommentarer gennemses inden de vises.
+        Comments are reviewed before they appear.
       </p>
     </form>
   );
