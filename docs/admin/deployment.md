@@ -204,9 +204,9 @@ Leave `NEXT_PUBLIC_APP_URL` **unset** unless you have a custom domain — the ap
 
 1. Click **Deploy** (or push a commit to trigger auto-deploy).
 2. Watch the build logs:
-   - `prisma generate` succeeds
-   - `next build` succeeds
-   - Pages are generated
+   - `prisma db push` syncs the database schema automatically
+   - `prisma generate` regenerates the Prisma client
+   - `next build` compiles and pre-renders pages
 3. The deployment URL appears when the build completes.
 
 **Expected output:** A live URL like `https://your-project.vercel.app`.
@@ -256,14 +256,19 @@ Leave `NEXT_PUBLIC_APP_URL` **unset** unless you have a custom domain — the ap
 
 ## Subsequent Deployments
 
-After initial setup, deployments are automatic:
+After initial setup, deployments are fully automatic:
 
 1. Push a commit to the connected GitHub branch.
-2. Vercel detects the push and runs `prisma generate && next build`.
-3. On success, the new deployment is promoted to production (~60–90 seconds).
-4. On failure, the previous deployment remains live (no downtime).
-
-**Build command:** `prisma generate && next build` (equivalent to `npm run build`).
+2. Vercel detects the push and runs `npm run build`, which executes:
+   ```
+   prisma db push --accept-data-loss
+   prisma generate
+   npx tsx scripts/backfill-thumbnail.ts
+   next build
+   ```
+3. **Schema changes are applied automatically** — any new models or fields added to `prisma/schema.prisma` are pushed to the database before the build completes. No manual `db:push` steps required.
+4. On success, the new deployment is promoted to production (~60–90 seconds).
+5. On failure, the previous deployment remains live (no downtime).
 
 ### Rolling back a deployment
 
@@ -282,6 +287,8 @@ After any deployment or configuration change, confirm:
 - [ ] `/api/health` returns `{"status":"ok"}`
 - [ ] Admin login works at `/admin/login`
 - [ ] Can create a new post and see it on the blog within 60 seconds (ISR revalidation)
+- [ ] Comment form appears on published blog posts
+- [ ] `/admin/comments` shows the moderation queue
 - [ ] OG image generates at `/api/og?title=Test`
 - [ ] `/sitemap.xml` returns valid XML with correct domain URLs
 - [ ] `/feed.xml` returns valid RSS 2.0

@@ -2,7 +2,7 @@
 name: Verifier
 description: JP Goal-backward verification of phase outcomes and cross-phase integration. Task completion ≠ Goal achievement.
 model: claude-sonnet-4.6
-tools: ['vscode', 'execute', 'read', 'edit', 'search', 'memory']
+tools: ['vscode', 'execute', 'read', 'edit', 'search', 'vscode/memory']
 ---
 
 You verify that work ACHIEVED its goal — not just that tasks were completed. Do NOT trust SUMMARY.md claims. Verify everything independently.

@@ -4,6 +4,7 @@ import PostPageClient from "@/components/blog/post-page-client";
 import { Breadcrumbs, type BreadcrumbItem } from "@/components/blog/breadcrumbs";
 import { RelatedPosts } from "@/components/blog/related-posts";
 import { PostNavigation } from "@/components/blog/post-navigation";
+import { CommentSection } from "@/components/blog/comment-section";
 import { Footer } from "@/components/footer";
 import { prisma } from "@/lib/prisma";
 import { extractHeadings } from "@/lib/markdown";
@@ -269,6 +270,7 @@ export default async function PostPage({ params }: Props) {
           <PostNavigation prevPost={prevPost} nextPost={nextPost} />
         }
         relatedPosts={<RelatedPosts posts={relatedPosts} />}
+        comments={<CommentSection postId={post.id} />}
         isAdmin={isAdmin}
         postId={post.id}
       />

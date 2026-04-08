@@ -65,6 +65,8 @@ interface PostPageProps {
   postNavigation?: ReactNode;
   /** Server-rendered related posts section */
   relatedPosts?: ReactNode;
+  /** Server-rendered comment section */
+  comments?: ReactNode;
   /** Whether the current session user is an admin */
   isAdmin?: boolean;
   /** Post database ID for the admin edit panel */
@@ -78,6 +80,7 @@ export default function PostPage({
   breadcrumbs,
   postNavigation,
   relatedPosts,
+  comments,
   isAdmin,
   postId,
 }: PostPageProps) {
@@ -244,6 +247,9 @@ export default function PostPage({
 
               {/* Related Posts */}
               {relatedPosts}
+
+              {/* Comment Section */}
+              {comments}
             </div>
 
             {/* Right column — sticky TOC sidebar, hidden below lg */}

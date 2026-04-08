@@ -107,6 +107,9 @@ export function AdminNavigation() {
           <Link href="/admin/settings" className="hover:text-primary transition-colors">
             Settings
           </Link>
+          <Link href="/admin/comments" className="hover:text-primary transition-colors">
+            Comments
+          </Link>
           
           <Button
             variant="ghost"
