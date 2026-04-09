@@ -5,7 +5,7 @@ import Link from "next/link";
 import { AdminNavigation } from "@/components/admin-navigation";
 import { Button } from "@/components/ui/button";
 import { MediaLibraryClient } from "@/components/admin/media-library-client";
-import { getDefaultThumbnailUrl } from "@/lib/site-settings";
+import { getDefaultThumbnailPool, getDefaultThumbnailSelectionMode } from "@/lib/site-settings";
 
 export const dynamic = "force-dynamic";
 
@@ -54,8 +54,9 @@ async function getExistingUploads() {
 }
 
 export default async function MediaLibraryPage() {
-  const [defaultThumbnailUrl, existingImages] = await Promise.all([
-    getDefaultThumbnailUrl(),
+  const [defaultThumbnailPool, selectionMode, existingImages] = await Promise.all([
+    getDefaultThumbnailPool(),
+    getDefaultThumbnailSelectionMode(),
     getExistingUploads(),
   ]);
 
@@ -77,7 +78,8 @@ export default async function MediaLibraryPage() {
           </div>
 
           <MediaLibraryClient
-            initialDefaultThumbnailUrl={defaultThumbnailUrl}
+            initialDefaultThumbnailPool={defaultThumbnailPool}
+            initialSelectionMode={selectionMode}
             initialImages={existingImages}
           />
         </div>

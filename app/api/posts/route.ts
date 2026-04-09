@@ -6,7 +6,7 @@ import { requireAuth } from "@/lib/auth";
 import { slugify } from "@/lib/utils";
 import { calculateReadingTime } from "@/lib/markdown";
 import { revalidatePath } from "next/cache";
-import { getDefaultThumbnailUrl } from "@/lib/site-settings";
+import { pickDefaultThumbnailUrl } from "@/lib/site-settings";
 
 const coverImageSchema = z
   .string()
@@ -139,7 +139,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const snapshotThumbnailUrl = data.coverImage ? null : await getDefaultThumbnailUrl();
+    const snapshotThumbnailUrl = data.coverImage ? null : await pickDefaultThumbnailUrl();
 
     const post = await prisma.post.create({
       data: {

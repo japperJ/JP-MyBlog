@@ -2,7 +2,11 @@
 
 import { getSession } from "@/lib/auth";
 import {
+  addToDefaultThumbnailPool,
+  clearDefaultThumbnailPool,
   clearDefaultThumbnailSetting,
+  removeFromDefaultThumbnailPool,
+  setDefaultThumbnailSelectionMode,
   setDefaultThumbnailSetting,
 } from "@/lib/site-settings";
 
@@ -31,4 +35,33 @@ export async function updateDefaultThumbnailAction(url: string): Promise<string>
 export async function clearDefaultThumbnailAction(): Promise<void> {
   await requireAdminSession();
   await clearDefaultThumbnailSetting();
+}
+
+export async function addToDefaultThumbnailPoolAction(url: string): Promise<string[]> {
+  await requireAdminSession();
+
+  const pool = await addToDefaultThumbnailPool(url);
+
+  if (pool.length === 0) {
+    throw new Error("Invalid thumbnail URL or failed to add to pool");
+  }
+
+  return pool;
+}
+
+export async function removeFromDefaultThumbnailPoolAction(url: string): Promise<string[]> {
+  await requireAdminSession();
+  return removeFromDefaultThumbnailPool(url);
+}
+
+export async function setDefaultThumbnailSelectionModeAction(
+  mode: "random" | "sequential"
+): Promise<void> {
+  await requireAdminSession();
+  await setDefaultThumbnailSelectionMode(mode);
+}
+
+export async function clearDefaultThumbnailPoolAction(): Promise<void> {
+  await requireAdminSession();
+  await clearDefaultThumbnailPool();
 }
