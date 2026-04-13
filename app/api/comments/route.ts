@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
 
     if (!allowed) {
       return NextResponse.json(
-        { error: "For mange kommentarer. Prøv igen om lidt." },
+        { error: "Too many comments. Please try again later." },
         {
           status: 429,
           headers: { "Retry-After": String(Math.ceil(retryAfterMs / 1000)) },
@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
 
     if (!parsed.success) {
       return NextResponse.json(
-        { error: "Ugyldigt input", details: parsed.error.errors },
+        { error: "Invalid input", details: parsed.error.errors },
         { status: 400 }
       );
     }
@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (!post || !post.published) {
-      return NextResponse.json({ error: "Indlæg ikke fundet" }, { status: 404 });
+      return NextResponse.json({ error: "Post not found" }, { status: 404 });
     }
 
     await prisma.comment.create({
@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
     revalidatePath(`/blog`);
 
     return NextResponse.json(
-      { success: true, message: "Din kommentar er modtaget og afventer godkendelse." },
+      { success: true, message: "Your comment has been submitted and is awaiting approval." },
       { status: 201 }
     );
   } catch (error) {
@@ -126,9 +126,9 @@ export async function POST(request: NextRequest) {
     });
 
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: "Ugyldigt input" }, { status: 400 });
+      return NextResponse.json({ error: "Invalid input" }, { status: 400 });
     }
 
-    return NextResponse.json({ error: "Kunne ikke gemme kommentaren" }, { status: 500 });
+    return NextResponse.json({ error: "Failed to save comment" }, { status: 500 });
   }
 }

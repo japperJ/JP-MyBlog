@@ -127,8 +127,8 @@ The `NEXT_PUBLIC_APP_URL` environment variable controls canonical URLs, the site
 - **Vercel without custom domain:** Leave it unset. The app reads `VERCEL_URL` automatically.
 - **Vercel with custom domain:** Set `NEXT_PUBLIC_APP_URL=https://yourdomain.com` in your Vercel environment variables.
 
-> [!warning] robots.txt sitemap URL is hardcoded
-> The file `app/robots.ts` currently hardcodes the sitemap URL to `https://jp-my-blog.vercel.app/sitemap.xml`. If you deploy to a different domain, update this file to point to your actual domain. Otherwise, search engines won't find your sitemap.
+> [!tip] robots.txt sitemap URL
+> The sitemap URL in `app/robots.ts` is derived from `NEXT_PUBLIC_APP_URL` (or `VERCEL_URL` fallback). Set `NEXT_PUBLIC_APP_URL` to your custom domain and the sitemap URL updates automatically.
 
 ## OG images (social sharing previews)
 

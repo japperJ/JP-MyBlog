@@ -184,7 +184,7 @@ If it fails → see [[troubleshooting-runbook#Build Failures]].
 1. Go to [vercel.com/new](https://vercel.com/new).
 2. Import your GitHub repository.
 3. **Framework Preset:** Next.js (auto-detected).
-4. **Root Directory:** If the repo uses a monorepo layout with the app at `upstream/JP-MyBlog/`, set the root directory to `upstream/JP-MyBlog`.
+4. **Root Directory:** Leave as the repository root (default).
 5. **Do not deploy yet** — add environment variables first (Step 6).
 
 ### Step 6: Set Vercel environment variables
@@ -245,10 +245,7 @@ Leave `NEXT_PUBLIC_APP_URL` **unset** unless you have a custom domain — the ap
 4. Wait for DNS propagation and SSL provisioning (usually <5 minutes).
 
 > [!important] Update after domain change
-> Two things must be updated when you add or change the domain:
->
-> 1. **`NEXT_PUBLIC_APP_URL`** — Set to `https://yourdomain.com` in Vercel environment variables. This affects metadata, OG images, RSS, sitemap, and canonical URLs.
-> 2. **`app/robots.ts`** — Contains a hardcoded sitemap URL (`https://jp-my-blog.vercel.app/sitemap.xml`). Update this to your new domain and redeploy.
+> Set **`NEXT_PUBLIC_APP_URL`** to `https://yourdomain.com` in Vercel environment variables and redeploy. This updates metadata, OG images, RSS, sitemap, canonical URLs, and the robots.txt sitemap reference.
 
 **Verify:** Visit `https://yourdomain.com` — the blog loads with a valid SSL certificate. Check `/sitemap.xml` to confirm URLs use the new domain.
 

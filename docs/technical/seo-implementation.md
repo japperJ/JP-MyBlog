@@ -137,13 +137,15 @@ OG images are generated on demand and cached by Vercel's CDN. First request cold
 
 ```typescript
 export default function robots(): MetadataRoute.Robots {
+  const origin = getConfiguredAppOrigin();
+
   return {
     rules: {
       userAgent: "*",
       allow: "/",
       disallow: ["/admin/", "/api/auth/"],
     },
-    sitemap: "https://jp-my-blog.vercel.app/sitemap.xml",
+    sitemap: `${origin}/sitemap.xml`,
   };
 }
 ```
@@ -154,10 +156,7 @@ export default function robots(): MetadataRoute.Robots {
 
 **What's allowed:** Everything else, including `/blog/`, `/api/og` (so social crawlers can fetch OG images), and `/feed.xml`.
 
-**Trade-off:** The sitemap URL is currently hardcoded to the production URL. If the blog moves to a custom domain, this needs to be updated to use `getConfiguredAppOrigin()`. This is a known limitation.
-
-> [!warning] Hardcoded sitemap URL
-> `app/robots.ts` hardcodes `https://jp-my-blog.vercel.app/sitemap.xml`. If the domain changes, update this file and `NEXT_PUBLIC_APP_URL`.
+The sitemap URL is resolved dynamically via `getConfiguredAppOrigin()`, so it follows `NEXT_PUBLIC_APP_URL` → `VERCEL_URL` → `localhost:3000`.
 
 ## Sitemap generation (`app/sitemap.ts`)
 

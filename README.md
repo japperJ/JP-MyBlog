@@ -1,213 +1,73 @@
 # AI Coding Blog
 
-A Next.js 15 + Prisma + PostgreSQL blog app prepared for a first Vercel Hobby preview/development rollout.
+A Next.js 15 + Prisma + PostgreSQL blog application.
 
-## Deployment contract
-
-The repo now uses one explicit Phase 3 contract:
-
-- **Workspace execution root:** `upstream/JP-MyBlog/`
-- **Vercel project root:** `upstream/JP-MyBlog/`
-- **Database:** one shared external free-tier PostgreSQL database for local development, Vercel Development, and Vercel Preview during the initial rollout
-- **Auth/session model:** database-backed host-only `auth_session` cookies
-- **Uploads on Vercel:** intentionally disabled until object storage is added
-- **Readiness proof:** only truthful when the checks run against a real reachable external PostgreSQL database, and hosted smoke tests only pass when a real preview URL exists
-
-If the external database or preview URL does not exist yet, the correct status is **blocked readiness**, not a soft pass.
-
-## Environment variables
-
-Copy the example file first:
+## Quick start
 
 ```bash
-cp .env.example .env.local
-```
-
-| Variable | Local | Vercel Development / Preview | Purpose |
-|---|---|---|---|
-| `DATABASE_URL` | Required | Required | Shared external PostgreSQL connection for Prisma, sessions, MFA state, and content data |
-| `NEXT_PUBLIC_APP_URL` | Required (`http://localhost:3000`) | Optional when relying on `VERCEL_URL` fallback; set only for a stable alias/custom domain | Public origin for metadata, sitemap, feed, and OG URLs in non-request contexts |
-| `MFA_TOKEN_SECRET` | Recommended | Required | Stable secret for short-lived MFA challenge tokens |
-
-Notes:
-
-- Do **not** point hosted deployments at `localhost`.
-- `NEXTAUTH_*` variables are not part of the active runtime contract.
-- Host-only cookies mean sessions do not carry from localhost to Vercel, or between different preview URLs.
-
-## One-time database initialization
-
-This repo still ships without checked-in Prisma migrations. For the first rollout, initialize the shared database with:
-
-```bash
-cd upstream/JP-MyBlog
-npm run db:generate
-npm run db:push
-npm run db:seed
-```
-
-Seeded admin account:
-
-- Email: `admin@aicodingblog.com`
-- Password: `admin123`
-
-Use `db:seed` only when you want that default admin user and starter content.
-
-## Local development
-
-From the workspace root:
-
-```bash
-cd upstream/JP-MyBlog
+git clone https://github.com/japperJ/JP-MyBlog.git
+cd JP-MyBlog
 npm install
-cp .env.example .env.local
-```
-
-Set `.env.local`:
-
-```env
-DATABASE_URL="postgresql://<shared-external-provider>"
-NEXT_PUBLIC_APP_URL="http://localhost:3000"
-MFA_TOKEN_SECRET="replace-with-a-long-random-secret"
-```
-
-Then run:
-
-```bash
-npm run db:generate
-npm run db:push
-npm run db:seed
+cp .env.example .env.local   # then fill in your values
+npm run db:push && npm run db:seed
 npm run dev
 ```
 
-Open:
+Open <http://localhost:3000>. Admin login: <http://localhost:3000/admin/login> (`admin@aicodingblog.com` / `admin123` — change immediately).
 
-- Blog: <http://localhost:3000>
-- Admin login: <http://localhost:3000/admin/login>
+## Environment variables
 
-## Vercel Hobby setup
+| Variable | Local | Vercel | Purpose |
+|---|---|---|---|
+| `DATABASE_URL` | Required | Required | PostgreSQL connection string |
+| `NEXT_PUBLIC_APP_URL` | `http://localhost:3000` | Optional (falls back to `VERCEL_URL`) | Canonical origin for metadata, sitemap, feed, OG |
+| `MFA_TOKEN_SECRET` | Recommended | Required | Stable HMAC secret for MFA challenge tokens |
 
-When you create or link the Vercel project, keep the project root set to:
+## Key commands
 
-```text
-upstream/JP-MyBlog/
-```
+| Command | What it does |
+|---|---|
+| `npm run dev` | Start the dev server |
+| `npm run typecheck` | Prisma generate + tsc --noEmit |
+| `npm run readiness:preflight` | typecheck, db:validate, db:generate, build |
+| `npm run db:push` | Apply schema to database |
+| `npm run db:seed` | Seed default admin + sample content |
+| `npm run test:smoke:local` | Smoke tests against local server |
+| `npm run test:smoke:hosted` | Smoke tests against a real preview URL |
 
-Recommended first-rollout setup:
+## Vercel deployment
 
-1. Create one shared external free-tier PostgreSQL database.
-2. Add `DATABASE_URL` and `MFA_TOKEN_SECRET` to **Development** and **Preview**.
-3. Leave `NEXT_PUBLIC_APP_URL` unset on Vercel if you want the app to use the deployment `VERCEL_URL` automatically.
-4. Set `NEXT_PUBLIC_APP_URL` on Vercel only if you intentionally use a stable alias or custom domain for that environment.
-5. Run `npm run db:push` once against the shared database.
-6. Run `npm run db:seed` once if you want the default admin user.
-7. Deploy the preview build.
+See [Deployment Procedure](./docs/admin/deployment.md) for the full guide. The short version:
 
-## Truthful readiness gate
-
-Run these commands from `upstream/JP-MyBlog/`.
-
-### Repeatable preflight command
-
-```bash
-npm run readiness:preflight
-```
-
-`readiness:preflight` owns this repeatable subset:
-
-- `npm run typecheck`
-- `npm run db:validate`
-- `npm run db:generate`
-- `npm run build`
-
-Interpretation:
-
-- `npm run db:validate` is not meaningful without `DATABASE_URL`.
-- `npm run build` is not a real pass unless the Prisma-backed pages can reach the external database.
-- This repeatable preflight does **not** replace the one-time first-rollout database bootstrap (`npm run db:push` and optional `npm run db:seed`).
-- This repeatable preflight does **not** replace hosted smoke.
-- If the database is missing or unreachable, readiness is **blocked**.
-
-### Required hosted smoke
-
-```bash
-PLAYWRIGHT_BASE_URL=https://<preview-url> PLAYWRIGHT_ADMIN_EMAIL=admin@aicodingblog.com PLAYWRIGHT_ADMIN_PASSWORD=admin123 npm run test:smoke:hosted
-```
-
-This smoke path covers the current deployment gate:
-
-- health endpoint
-- admin login and protected admin screens
-- post/category/tag CRUD through the current API, including tag update
-- OG image generation
-- hosted upload limitation messaging and hosted `/api/upload` failure behavior
-
-`npm run test:smoke:hosted` hard-requires `PLAYWRIGHT_BASE_URL` and rejects localhost-style targets. Use `npm run test:smoke:local` when you intentionally want the same smoke flow against a local dev server.
-
-### Full first-rollout readiness meaning
-
-A truthful first-rollout readiness claim means all three of these are true:
-
-1. the one-time database bootstrap completed against the shared external database
-2. `npm run readiness:preflight` passed against that same reachable external database
-3. `npm run test:smoke:hosted` passed against a real hosted preview URL
-
-`tests/blog.spec.ts` is intentionally **not** part of the Phase 3 readiness gate. That file is explicitly de-scoped until it is realigned to the current homepage/blog UI.
-
-## Testing model
-
-- `npm test` remains a broader developer command.
-- `npm run test:smoke:local` is the only repo-owned smoke path that may start or reuse a local server.
-- `npm run test:smoke:hosted` is the truthful initial hosted readiness smoke gate and never falls back to local.
-- Do not treat a generic `npm test` result as proof of first preview readiness when the required database or preview URL prerequisites are missing.
-
-## Hosted upload limitation
-
-`/api/upload` writes to local disk, so Vercel-hosted preview/development deployments intentionally reject uploads.
-
-Hosted workflow:
-
-1. Upload the image to any HTTPS-accessible image host.
-2. Copy the final `https://...` URL.
-3. Paste that URL into the post editor's cover image field.
-
-## Session and origin behavior
-
-- Local development should keep `NEXT_PUBLIC_APP_URL=http://localhost:3000`.
-- Hosted preview/development can rely on `VERCEL_URL` fallback unless you pin a stable alias/custom domain.
-- Metadata, feed, sitemap, and OG URLs follow the configured origin or request origin.
-- Auth cookies are host-only, so every preview hostname is a separate login scope.
+1. Import the repo in [vercel.com/new](https://vercel.com/new).
+2. Set `DATABASE_URL` and `MFA_TOKEN_SECRET` in Vercel environment variables.
+3. Deploy. The build runs `prisma generate && next build` and requires a reachable database.
 
 ## Known limitations
 
-- No checked-in Prisma migrations exist yet; first-rollout setup uses `prisma db push`.
+- No checked-in Prisma migrations; setup uses `prisma db push`.
 - Vercel-hosted uploads are disabled until object storage is added.
 - In-memory rate limiting is acceptable for preview/dev only.
-- Final deployment readiness cannot be claimed without a real reachable external PostgreSQL database and a real preview URL for hosted smoke testing.
+- Preview and production share one database during initial rollout.
 
 ## Documentation
 
-### For users (getting started, writing posts, customization)
+### For users
 
-- [**Quickstart**](./docs/user/quickstart.md) — your blog running on Vercel in 5 minutes
+- [**Getting Started**](./docs/user/getting-started.md) — clone, install, run locally in 5 minutes
 - [**Writing Posts**](./docs/user/writing-posts.md) — create, edit, publish, and manage blog posts
-- [**Customization**](./docs/user/customization.md) — site name, metadata, OG images, theme, author profiles
-- [**Troubleshooting**](./docs/user/troubleshooting.md) — symptom-based fixes for common issues
+- [**Customization**](./docs/user/customization.md) — site name, metadata, OG images, theme
+- [**Troubleshooting**](./docs/user/troubleshooting.md) — symptom-based fixes
 
-### For engineers (architecture, auth, SEO, deployment internals)
+### For engineers
 
-- [**Architecture**](./docs/technical/architecture.md) — system design, invariants, technology choices, and rationale
-- [**Auth System**](./docs/technical/auth-system.md) — session cookies, MFA/TOTP, middleware, the self-fetch deadlock fix
-- [**SEO Implementation**](./docs/technical/seo-implementation.md) — JSON-LD schemas, ISR strategy, sitemap, OG images
+- [**Architecture**](./docs/technical/architecture.md) — system design, invariants, technology choices
+- [**Auth System**](./docs/technical/auth-system.md) — session cookies, MFA/TOTP, middleware
+- [**SEO Implementation**](./docs/technical/seo-implementation.md) — JSON-LD, ISR, sitemap, OG images
 - [**Deployment Model**](./docs/technical/deployment-model.md) — Vercel Hobby constraints, env var contract, build pipeline
 
-### For admins (deployment procedures, database ops, monitoring)
+### For admins
 
-- [**Deployment Procedure**](./docs/admin/deployment.md) — full setup with prerequisites, rollback, and verification checklist
-- [**Database Operations**](./docs/admin/database-operations.md) — migrations, seed data, backup/restore, user management
-- [**Monitoring**](./docs/admin/monitoring.md) — health checks, alerts, incident response decision tree
-
-### Legacy docs
-
-- [`GETTING_STARTED.md`](./GETTING_STARTED.md) — original getting started guide (superseded by [docs/user/quickstart.md](./docs/user/quickstart.md))
-- [`IMPLEMENTATION.md`](./IMPLEMENTATION.md) — original implementation notes (superseded by [docs/technical/](./docs/technical/))
+- [**Deployment Procedure**](./docs/admin/deployment.md) — full setup with prerequisites, rollback, verification
+- [**Database Operations**](./docs/admin/database-operations.md) — migrations, seed data, backup/restore
+- [**Monitoring**](./docs/admin/monitoring.md) — health checks, alerts, incident response
