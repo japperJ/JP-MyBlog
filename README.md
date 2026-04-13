@@ -4,6 +4,18 @@ A Next.js 15 + Prisma + PostgreSQL blog application.
 
 ![AI Coding Blog homepage screenshot](./screendump.png)
 
+## Why this blog stands out
+
+- **Secure admin workflow** — database-backed sessions, MFA support, and host-scoped auth cookies.
+- **Rich publishing experience** — Markdown posts, code blocks, categories, tags, cover images, related posts, and post navigation.
+- **Automatic image handling** — dynamic OG images, responsive post images, and graceful cover-image fallbacks.
+- **Built-in stats** — post view counts plus an admin visitor dashboard for traffic insight.
+- **SEO-ready by default** — sitemap, robots.txt, JSON-LD, canonical URLs, RSS feed, and ISR for fresh content.
+- **Fast discovery** — command-palette search across posts so readers can find content quickly.
+
+
+## See it live here: https://jp-my-blog.vercel.app/blog
+
 ## Quick start
 
 ```bash
