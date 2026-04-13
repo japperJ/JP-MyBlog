@@ -2,6 +2,8 @@
 
 A Next.js 15 + Prisma + PostgreSQL blog application.
 
+![AI Coding Blog homepage screenshot](./screendump.png)
+
 ## Quick start
 
 ```bash
