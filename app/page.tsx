@@ -33,6 +33,15 @@ export default async function HomePage() {
             category: true,
           },
         },
+        _count: {
+          select: {
+            comments: {
+              where: {
+                status: "approved",
+              },
+            },
+          },
+        },
       },
       orderBy: {
         publishedAt: "desc",
@@ -52,6 +61,15 @@ export default async function HomePage() {
         categories: {
           include: {
             category: true,
+          },
+        },
+        _count: {
+          select: {
+            comments: {
+              where: {
+                status: "approved",
+              },
+            },
           },
         },
       },

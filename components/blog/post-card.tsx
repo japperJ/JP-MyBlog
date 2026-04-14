@@ -5,7 +5,7 @@ import Image from "next/image";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { formatDate } from "@/lib/utils";
 import { getPostThumbnailSrc } from "@/lib/post-thumbnail";
-import { Clock, Eye } from "lucide-react";
+import { Clock, Eye, MessageSquare } from "lucide-react";
 
 interface PostCardProps {
   post: {
@@ -18,6 +18,9 @@ interface PostCardProps {
     publishedAt?: Date | null;
     readingTime: number;
     views: number;
+    _count?: {
+      comments: number;
+    };
     author: {
       name: string | null;
     };
@@ -81,6 +84,12 @@ export function PostCard({ post }: PostCardProps) {
               <Eye className="w-4 h-4" />
               {post.views}
             </span>
+            {post._count?.comments ? (
+              <span className="flex items-center gap-1">
+                <MessageSquare className="w-4 h-4" />
+                {post._count.comments}
+              </span>
+            ) : null}
           </div>
           {post.publishedAt && (
             <span>{formatDate(post.publishedAt)}</span>

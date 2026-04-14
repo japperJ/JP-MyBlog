@@ -74,6 +74,15 @@ export default async function BlogPage({ searchParams }: Props) {
     include: {
       author: { select: { name: true } },
       categories: { include: { category: true } },
+      _count: {
+        select: {
+          comments: {
+            where: {
+              status: "approved",
+            },
+          },
+        },
+      },
     },
     orderBy: { publishedAt: "desc" },
     skip: (currentPage - 1) * PAGE_SIZE,

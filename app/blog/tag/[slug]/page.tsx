@@ -105,6 +105,15 @@ export default async function TagPage({ params }: Props) {
           category: true,
         },
       },
+      _count: {
+        select: {
+          comments: {
+            where: {
+              status: "approved",
+            },
+          },
+        },
+      },
     },
     orderBy: {
       publishedAt: "desc",
