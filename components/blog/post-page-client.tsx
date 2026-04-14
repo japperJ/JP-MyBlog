@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { AdminEditPanel } from "@/components/blog/admin-edit-panel";
 import { formatDate } from "@/lib/utils";
 import { getPostThumbnailSrc } from "@/lib/post-thumbnail";
-import { Clock, Eye, Calendar } from "lucide-react";
+import { Clock, Eye, Calendar, MessageSquare } from "lucide-react";
 import { notFound } from "next/navigation";
 
 import type { ReactNode } from "react";
@@ -34,6 +34,7 @@ interface Post {
   publishedAt: Date | null;
   readingTime: number;
   views: number;
+  commentCount?: number;
   author: {
     name: string | null;
     avatar: string | null;
@@ -176,6 +177,13 @@ export default function PostPage({
                 <Eye className="w-4 h-4" />
                 {post.views} views
               </div>
+
+              {post.commentCount && post.commentCount > 0 ? (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <MessageSquare className="w-4 h-4" />
+                  {post.commentCount} comments
+                </div>
+              ) : null}
             </div>
           </div>
 

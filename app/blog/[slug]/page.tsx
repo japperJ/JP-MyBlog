@@ -201,6 +201,13 @@ export default async function PostPage({ params }: Props) {
       : Promise.resolve(null),
   ]);
 
+  const commentCount = await prisma.comment.count({
+    where: {
+      postId: post.id,
+      status: "approved",
+    },
+  });
+
   const session = await getSession();
   const isAdmin = session?.user.role === "admin";
 
@@ -262,7 +269,7 @@ export default async function PostPage({ params }: Props) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(blogPostingJsonLd) }}
       />
       <PostPageClient
-        post={post}
+        post={{ ...post, commentCount }}
         headings={headings}
         shareUrl={postUrl}
         breadcrumbs={<Breadcrumbs items={breadcrumbItems} />}
