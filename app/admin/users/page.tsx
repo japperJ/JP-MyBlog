@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Users, Plus, Trash2, ShieldCheck, ShieldOff, ShieldAlert, Mail } from 'lucide-react';
+import { Users, Plus, Trash2, ShieldCheck, ShieldOff, ShieldAlert, Mail, KeyRound } from 'lucide-react';
 
 interface User {
   id: string;
@@ -30,6 +30,12 @@ export default function UsersManagementPage() {
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [submittingUser, setSubmittingUser] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [passwordUserId, setPasswordUserId] = useState<string | null>(null);
+  const [passwordFormData, setPasswordFormData] = useState({
+    password: '',
+    confirmPassword: '',
+  });
+  const [submittingPasswordUserId, setSubmittingPasswordUserId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     email: '',
     name: '',
@@ -201,6 +207,64 @@ export default function UsersManagementPage() {
     }
   }
 
+  function openPasswordForm(userId: string) {
+    setError('');
+    setSuccess('');
+    setPasswordUserId(userId);
+    setPasswordFormData({ password: '', confirmPassword: '' });
+  }
+
+  function cancelPasswordForm() {
+    setPasswordUserId(null);
+    setPasswordFormData({ password: '', confirmPassword: '' });
+  }
+
+  async function handlePasswordSubmit(userId: string) {
+    setError('');
+    setSuccess('');
+
+    if (passwordFormData.password.length < 6) {
+      setError('Password must be at least 6 characters long.');
+      return;
+    }
+
+    if (passwordFormData.password !== passwordFormData.confirmPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
+
+    setSubmittingPasswordUserId(userId);
+
+    try {
+      const response = await fetch(`/api/admin/users/${userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'set-password',
+          password: passwordFormData.password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.status === 401) {
+        setAccessState('denied');
+        router.replace('/admin?denied=users');
+        return;
+      }
+
+      if (!response.ok) throw new Error(data.error || 'Failed to update password');
+
+      setSuccess(data.message || 'Password updated successfully.');
+      cancelPasswordForm();
+      await loadUsers();
+    } catch (error: unknown) {
+      setError(error instanceof Error ? error.message : 'Failed to update password');
+    } finally {
+      setSubmittingPasswordUserId(null);
+    }
+  }
+
   if (accessState === 'loading') {
     return (
       <div className="min-h-screen bg-background">
@@ -347,9 +411,9 @@ export default function UsersManagementPage() {
               {users.map((user) => (
                 <div
                   key={user.id}
-                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition gap-4"
+                  className="p-4 border rounded-lg hover:bg-muted/50 transition"
                 >
-                  <div className="flex items-start gap-4 flex-1 min-w-0">
+                  <div className="flex items-start gap-4 min-w-0">
                     <div className="p-2 bg-primary/10 rounded-lg shrink-0">
                       <Mail className="h-5 w-5 text-primary" />
                     </div>
@@ -383,7 +447,18 @@ export default function UsersManagementPage() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="mt-4 flex flex-wrap items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        passwordUserId === user.id ? cancelPasswordForm() : openPasswordForm(user.id)
+                      }
+                    >
+                      <KeyRound className="h-4 w-4 mr-1" />
+                      Change Password
+                    </Button>
+
                     {/* MFA disable — only for other users with MFA active */}
                     {user.mfaEnabled && user.id !== currentUserId && (
                       <Button
@@ -431,8 +506,63 @@ export default function UsersManagementPage() {
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
-                </div>
-              ))}
+
+                  {passwordUserId === user.id && (
+                    <div className="mt-4 pt-4 border-t">
+                      <div className="max-w-xl space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor={`new-password-${user.id}`}>New Password</Label>
+                            <Input
+                              id={`new-password-${user.id}`}
+                              type="password"
+                              value={passwordFormData.password}
+                              onChange={(e) =>
+                                setPasswordFormData({ ...passwordFormData, password: e.target.value })
+                              }
+                              placeholder="Min. 6 characters"
+                              minLength={6}
+                              required
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor={`confirm-password-${user.id}`}>Confirm Password</Label>
+                            <Input
+                              id={`confirm-password-${user.id}`}
+                              type="password"
+                              value={passwordFormData.confirmPassword}
+                              onChange={(e) =>
+                                setPasswordFormData({
+                                  ...passwordFormData,
+                                  confirmPassword: e.target.value,
+                                })
+                              }
+                              placeholder="Repeat the new password"
+                              minLength={6}
+                              required
+                            />
+                          </div>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          The user will need to sign in again on other devices after this change.
+                        </p>
+                        <div className="flex gap-3">
+                          <Button
+                            type="button"
+                            onClick={() => handlePasswordSubmit(user.id)}
+                            disabled={submittingPasswordUserId === user.id}
+                          >
+                            {submittingPasswordUserId === user.id ? 'Saving...' : 'Save Password'}
+                          </Button>
+                          <Button type="button" variant="outline" onClick={cancelPasswordForm}>
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  </div>
+                ))}
             </div>
           )}
         </Card>

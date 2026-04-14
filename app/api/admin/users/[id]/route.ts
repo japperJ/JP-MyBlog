@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth';
+import { hashPassword, destroyOtherSessions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { createVisitorEvent } from '@/lib/visitor-events';
 import { z } from 'zod';
@@ -9,7 +10,8 @@ type RouteContext = {
 };
 
 const patchSchema = z.object({
-  action: z.enum(['disable-mfa', 'require-mfa', 'unrequire-mfa']),
+  action: z.enum(['disable-mfa', 'require-mfa', 'unrequire-mfa', 'set-password']),
+  password: z.string().min(6).optional(),
 });
 
 // PATCH - Admin MFA management actions
@@ -22,7 +24,7 @@ export async function PATCH(
     const currentUser = await requireAdmin();
     const { id } = await context.params;
     const body = await request.json();
-    const { action } = patchSchema.parse(body);
+    const { action, password } = patchSchema.parse(body);
 
     if (action === 'disable-mfa') {
       // Admins cannot disable their own MFA via this route — use /api/auth/mfa/disable
@@ -113,6 +115,38 @@ export async function PATCH(
       });
 
       return NextResponse.json({ success: true, message: 'MFA requirement removed.' });
+    }
+
+    if (action === 'set-password') {
+      if (!password) {
+        return NextResponse.json({ error: 'Password is required' }, { status: 400 });
+      }
+
+      const passwordHash = await hashPassword(password);
+
+      await prisma.user.update({
+        where: { id },
+        data: { passwordHash },
+      });
+
+      await destroyOtherSessions(id);
+
+      await createVisitorEvent({
+        eventType: 'admin_user_password_updated',
+        source: 'admin',
+        request,
+        pathname: `/api/admin/users/${id}`,
+        responseStatus: 200,
+        durationMs: Date.now() - startedAt,
+        userId: currentUser.id,
+        authenticated: true,
+        metadata: { action, targetUserId: id },
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: 'Password updated successfully.',
+      });
     }
   } catch (error) {
     console.error('Admin user PATCH error:', error);
