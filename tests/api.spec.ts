@@ -163,7 +163,7 @@ test.describe("Posts API", () => {
         },
       });
       expect(firstView.ok()).toBeTruthy();
-      await expect(await firstView.json()).toEqual({ counted: true });
+      expect(await firstView.json()).toEqual({ counted: true });
 
       const duplicateView = await anonymousRequest.post(`/api/posts/${createdPost.id}/view`, {
         headers: {
@@ -171,7 +171,7 @@ test.describe("Posts API", () => {
         },
       });
       expect(duplicateView.ok()).toBeTruthy();
-      await expect(await duplicateView.json()).toEqual({ counted: false });
+      expect(await duplicateView.json()).toEqual({ counted: false });
 
       const firstPostRead = await request.get(`/api/posts/${createdPost.id}`);
       expect(firstPostRead.ok()).toBeTruthy();
@@ -184,7 +184,7 @@ test.describe("Posts API", () => {
         },
       });
       expect(otherVisitorView.ok()).toBeTruthy();
-      await expect(await otherVisitorView.json()).toEqual({ counted: true });
+      expect(await otherVisitorView.json()).toEqual({ counted: true });
 
       const secondPostRead = await request.get(`/api/posts/${createdPost.id}`);
       expect(secondPostRead.ok()).toBeTruthy();

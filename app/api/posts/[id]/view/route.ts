@@ -11,10 +11,11 @@ type Params = {
 };
 
 export async function POST(request: NextRequest, { params }: Params) {
+  const { id: postId } = await params;
+
   try {
-    const { id } = await params;
     const post = await prisma.post.findUnique({
-      where: { id },
+      where: { id: postId },
       select: { id: true, published: true },
     });
 
@@ -34,6 +35,7 @@ export async function POST(request: NextRequest, { params }: Params) {
   } catch (error) {
     console.error("Error tracking post view", {
       route: "/api/posts/[id]/view",
+      postId,
       error: error instanceof Error ? { message: error.message, stack: error.stack } : error,
     });
     return NextResponse.json({ error: "Failed to track post view" }, { status: 500 });

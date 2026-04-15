@@ -1,6 +1,9 @@
 import { createHash } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { getClientIp } from "@/lib/rate-limit";
+import { rateLimit } from "@/lib/rate-limit";
+
+const FALLBACK_DEDUPE_WINDOW_MILLISECONDS = 60_000;
 
 type TrackPostViewInput = {
   postId: string;
@@ -35,21 +38,29 @@ function resolveViewerKey(input: TrackPostViewInput): string | null {
 
   const userAgent = normalize(input.headers?.get("user-agent"));
   const ipAddress = normalize(input.headers ? getClientIp(input.headers) : null);
-  const parts = [ipAddress ? `ip:${ipAddress}` : null, userAgent ? `ua:${userAgent}` : null].filter(
-    Boolean
-  );
-
-  if (parts.length === 0) {
+  if (!ipAddress && !userAgent) {
     return null;
   }
 
-  return `fingerprint:${hashFingerprint(parts.join("|"))}`;
+  // Daily rotation in YYYY-MM-DD format is enough to dedupe refreshes while limiting long-term tracking.
+  const dateBucket = new Date().toISOString().slice(0, 10);
+  return `fingerprint:${hashFingerprint(JSON.stringify({ ipAddress, userAgent, dateBucket }))}`;
 }
 
 export async function trackPostView(input: TrackPostViewInput): Promise<{ counted: boolean }> {
   const viewerKey = resolveViewerKey(input);
 
   if (!viewerKey) {
+    // This path is only used when we cannot derive user ID, visitor ID, IP, or user-agent.
+    // Apply a short global guard to reduce rapid inflation from unidentified requests.
+    const fallbackRateLimitResult: { allowed: boolean; retryAfterMs: number } = rateLimit(`post-view:fallback:${input.postId}`, {
+      limit: 1,
+      windowMs: FALLBACK_DEDUPE_WINDOW_MILLISECONDS,
+    });
+    if (!fallbackRateLimitResult.allowed) {
+      return { counted: false };
+    }
+
     await prisma.post.update({
       where: { id: input.postId },
       data: { views: { increment: 1 } },

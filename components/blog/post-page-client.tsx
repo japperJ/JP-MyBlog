@@ -99,7 +99,7 @@ export default function PostPage({
   });
 
   const [editOpen, setEditOpen] = useState(false);
-  const [viewCount, setViewCount] = useState(post.views);
+  const [displayedViewCount, setDisplayedViewCount] = useState(post.views);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -116,11 +116,14 @@ export default function PostPage({
 
         const data = (await response.json()) as { counted?: boolean };
         if (data.counted) {
-          setViewCount((current) => current + 1);
+          setDisplayedViewCount((current) => current + 1);
         }
       })
-      .catch(() => {
-        // Best effort only — view tracking should not affect rendering.
+      .catch((error) => {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return;
+        }
+        console.error(`Post view tracking network request failed for post ${post.id}`, error);
       });
 
     return () => controller.abort();
@@ -201,7 +204,7 @@ export default function PostPage({
 
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Eye className="w-4 h-4" />
-                {viewCount} views
+                {displayedViewCount} views
               </div>
 
               {post.commentCount && post.commentCount > 0 ? (
