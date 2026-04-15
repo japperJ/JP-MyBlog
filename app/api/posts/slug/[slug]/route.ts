@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getSession } from "@/lib/auth";
+import { trackPostView } from "@/lib/post-views";
+import { VISITOR_ID_STORAGE_KEY } from "@/lib/visitor-constants";
 
 type Params = {
   params: Promise<{
@@ -42,14 +45,12 @@ export async function GET(request: NextRequest, { params }: Params) {
       );
     }
 
-    // Increment view count
-    await prisma.post.update({
-      where: { id: post.id },
-      data: {
-        views: {
-          increment: 1,
-        },
-      },
+    const session = await getSession();
+    await trackPostView({
+      postId: post.id,
+      userId: session?.user.id,
+      visitorId: request.cookies.get(VISITOR_ID_STORAGE_KEY)?.value ?? null,
+      headers: request.headers,
     });
 
     return NextResponse.json(post);
