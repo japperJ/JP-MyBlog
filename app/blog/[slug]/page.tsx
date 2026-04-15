@@ -146,15 +146,6 @@ export default async function PostPage({ params }: Props) {
     notFound();
   }
 
-  await prisma.post.update({
-    where: { id: post.id },
-    data: {
-      views: {
-        increment: 1,
-      },
-    },
-  });
-
   // Query related posts and prev/next posts in parallel
   const categoryIds = post.categories.map((pc) => pc.category.id);
   const [relatedPosts, prevPost, nextPost] = await Promise.all([

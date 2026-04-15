@@ -121,11 +121,25 @@ model Post {
   categories      PostCategory[]
   tags            PostTag[]
   comments        Comment[]
+  postViews       PostView[]
 
   @@index([slug])
   @@index([published, publishedAt])
   @@index([authorId])
   @@map("posts")
+}
+
+model PostView {
+  id        String   @id @default(cuid())
+  postId    String
+  viewerKey String
+  createdAt DateTime @default(now())
+
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, viewerKey])
+  @@index([postId])
+  @@map("post_views")
 }
 
 model Category {

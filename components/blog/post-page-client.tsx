@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Pencil } from "lucide-react";
@@ -99,6 +99,35 @@ export default function PostPage({
   });
 
   const [editOpen, setEditOpen] = useState(false);
+  const [displayedViewCount, setDisplayedViewCount] = useState(post.views);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    void fetch(`/api/posts/${post.id}/view`, {
+      method: "POST",
+      credentials: "same-origin",
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          return;
+        }
+
+        const data = (await response.json()) as { counted?: boolean };
+        if (data.counted) {
+          setDisplayedViewCount((current) => current + 1);
+        }
+      })
+      .catch((error) => {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return;
+        }
+        console.error(`Post view tracking network request failed for post ${post.id}`, error);
+      });
+
+    return () => controller.abort();
+  }, [post.id]);
 
   // Only h2/h3 headings — determines whether to show the two-column TOC layout
   const hasToc = headings.filter((h) => h.level >= 2 && h.level <= 3).length > 0;
@@ -175,7 +204,7 @@ export default function PostPage({
 
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Eye className="w-4 h-4" />
-                {post.views} views
+                {displayedViewCount} views
               </div>
 
               {post.commentCount && post.commentCount > 0 ? (

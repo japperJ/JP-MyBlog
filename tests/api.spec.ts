@@ -136,6 +136,67 @@ test.describe("Posts API", () => {
     });
   });
 
+  test("dedupes post views for the same visitor cookie", async ({ request }) => {
+    await loginAsAdmin(request);
+
+    const createResponse = await request.post("/api/posts", {
+      data: {
+        title: `View Dedupe Test ${Date.now()}`,
+        content: "# View Test\n\nValid content for view dedupe checks.",
+        excerpt: "Temporary view dedupe post",
+        published: true,
+        categoryIds: [],
+        tagIds: [],
+      },
+    });
+
+    expect(createResponse.status()).toBe(201);
+    const createdPost = await createResponse.json();
+
+    const anonymousRequest = await playwrightRequest.newContext({ baseURL });
+    const visitorCookie = `visitor-${Date.now()}`;
+
+    try {
+      const firstView = await anonymousRequest.post(`/api/posts/${createdPost.id}/view`, {
+        headers: {
+          Cookie: `visitor_id=${visitorCookie}`,
+        },
+      });
+      expect(firstView.ok()).toBeTruthy();
+      expect(await firstView.json()).toEqual({ counted: true });
+
+      const duplicateView = await anonymousRequest.post(`/api/posts/${createdPost.id}/view`, {
+        headers: {
+          Cookie: `visitor_id=${visitorCookie}`,
+        },
+      });
+      expect(duplicateView.ok()).toBeTruthy();
+      expect(await duplicateView.json()).toEqual({ counted: false });
+
+      const firstPostRead = await request.get(`/api/posts/${createdPost.id}`);
+      expect(firstPostRead.ok()).toBeTruthy();
+      const firstPostBody = await firstPostRead.json();
+      expect(firstPostBody.views).toBe(1);
+
+      const otherVisitorView = await anonymousRequest.post(`/api/posts/${createdPost.id}/view`, {
+        headers: {
+          Cookie: `visitor_id=${visitorCookie}-other`,
+        },
+      });
+      expect(otherVisitorView.ok()).toBeTruthy();
+      expect(await otherVisitorView.json()).toEqual({ counted: true });
+
+      const secondPostRead = await request.get(`/api/posts/${createdPost.id}`);
+      expect(secondPostRead.ok()).toBeTruthy();
+      const secondPostBody = await secondPostRead.json();
+      expect(secondPostBody.views).toBe(2);
+    } finally {
+      await anonymousRequest.dispose();
+      const deleteResponse = await request.delete(`/api/posts/${createdPost.id}`);
+      expect(deleteResponse.ok()).toBeTruthy();
+    }
+  });
+
   test("creates, updates, and deletes a post with auth", async ({ request }) => {
     await loginAsAdmin(request);
 
